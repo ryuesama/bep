@@ -70,7 +70,7 @@ a{color:var(--ac)}
   <nav class="steps" id="steps"></nav>
 
   <section id="c1"><h2><small>C1</small>事象：数字に表れた症状</h2>
-    <p class="note">解釈を書かず、事実だけを選びます。損益分岐点ツールの最新の結果から自動で並べています。</p>
+    <p class="note">解釈を書かず、事実だけを選びます。損益分岐点ツールとロカベン財務6指標の最新の結果から自動で並べています。</p>
     <div id="bepbox"></div>
     <div class="row2"><div><label class="note" for="prev">前期の売上高（任意・同じ単位）</label><input type="text" id="prev" inputmode="decimal" data-k="prev"></div><div></div></div>
     <div id="syms"></div>
@@ -83,7 +83,7 @@ a{color:var(--ac)}
   </section>
 
   <section id="c3"><h2><small>C3</small>直接原因：どの数字がずれたのか</h2>
-    <p class="note">利益を動かすのは、単価・販売数量・変動費・固定費の4つです。症状から疑わしいものに印を付けています。まだ真因ではなく、最後のずれです。</p>
+    <p class="note">利益を動かすのは単価・販売数量・変動費・固定費の4つ、資金と財務を動かすのは運転資本と借入です。症状から疑わしいものに印を付けています。まだ真因ではなく、最後のずれです。</p>
     <div id="levs"></div>
   </section>
 
@@ -145,7 +145,8 @@ const fm=n=>isFinite(n)?Math.round(n).toLocaleString('ja-JP'):'—';
 const pc=(n,d=1)=>isFinite(n)?(n*100).toFixed(d)+'%':'—';
 const num=v=>{const n=parseFloat(String(v??'').replace(/[,，\s]/g,''));return isFinite(n)?n:NaN};
 const VIEWS=['経営者','事業','企業を取り巻く環境・関係者','内部管理体制'];
-const LEV={price:'単価',vol:'販売数量',var:'変動費（原価）',fix:'固定費'};
+const LEV={price:'単価',vol:'販売数量',var:'変動費（原価）',fix:'固定費',wc:'運転資本（回収・在庫・支払）',debt:'借入と財務体質'};
+const LBLEV={sales:['vol','price'],opm:['price','var','fix'],lp:['fix','price'],ebitda:['debt','price','var','fix'],wc:['wc'],eq:['debt']};
 // 仮説ライブラリ（ロカベン4つの視点の小項目に対応）: l=関係するずれ, v=視点, y=層, t=仮説, s=見るもの, m=測るもの, a=聞く相手, r=ロカベン小項目
 const H=[
  {id:'p1',l:['price'],v:2,y:'C4',t:'競合との違いが打ち出せず、相見積もりで価格が決まっている',s:'見積書、失注した案件の理由',m:'相見積もりの割合、見積の受注率、値引き率',a:'営業担当',r:'競合他社との比較'},
@@ -170,6 +171,15 @@ const H=[
  {id:'f4',l:['fix','var'],v:1,y:'C4',t:'ITの活用が遅れ、転記や手作業が多い',s:'受注から請求までの帳票の流れ',m:'同じ情報を書き写す回数',a:'事務担当',r:'ITに関する投資、活用の状況'},
  {id:'f5',l:['fix'],v:3,y:'C5',t:'人材育成の仕組みがなく、多能工化できず人を増やして対応している',s:'教育の記録、スキル表',m:'1人が担える工程の数',a:'製造責任者、若手社員',r:'人材育成の取り組み状況・仕組み'},
  {id:'f6',l:['fix'],v:2,y:'C4',t:'社員の定着が悪く、採用と教育の費用がかさんでいる',s:'退職者の記録、退職理由',m:'離職率、平均勤続年数、平均給与',a:'総務、社員',r:'従業員定着率／勤続年数・平均給与'},
+ {id:'w1',l:['wc'],v:2,y:'C4',t:'売掛金の回収が遅い（回収条件が長い、延滞が放置されている）',s:'得意先別の売掛金残高と回収条件',m:'売上債権の回転期間、延滞の件数と金額',a:'経理、営業担当',r:'主な取引先企業の推移'},
+ {id:'w2',l:['wc'],v:1,y:'C4',t:'在庫が多すぎる、または動かない在庫が残っている',s:'倉庫、在庫表',m:'棚卸資産の回転期間、1年以上動いていない在庫の金額',a:'製造責任者、購買担当',r:'強み・弱み'},
+ {id:'w3',l:['wc'],v:1,y:'C4',t:'材料をまとめて発注する習慣があり、使う量以上に仕入れている',s:'発注のルール、発注ロットと使用量',m:'発注ロットと月間使用量の比率',a:'購買担当',r:'強み・弱み'},
+ {id:'w4',l:['wc'],v:0,y:'C5',t:'取引条件（回収と支払の期間）を交渉する方針がない',s:'得意先・仕入先別の取引条件の一覧',m:'回収期間と支払期間の差',a:'社長、経理',r:'経営理念・ビジョン'},
+ {id:'w5',l:['wc','debt'],v:3,y:'C5',t:'資金繰り表がなく、お金の出入りを先読みする仕組みがない',s:'資金繰り表、月次試算表',m:'資金繰り表を作っている月数',a:'社長、経理',r:'事業計画・経営計画の有無'},
+ {id:'d1',l:['debt'],v:0,y:'C5',t:'過去の設備投資が回収できていない（投資判断の基準がない）',s:'設備投資の履歴と、その設備の稼働状況',m:'投資額と、それで増えた限界利益',a:'社長、製造責任者',r:'経営意欲'},
+ {id:'d2',l:['debt'],v:1,y:'C4',t:'赤字や資金不足を借入で埋め続けている',s:'借入金の使い道の一覧',m:'借入残高の増減と、本業で稼いだ資金の比較',a:'社長、経理',r:'強み・弱み'},
+ {id:'d3',l:['debt'],v:0,y:'C4',t:'役員報酬や会社外への支出が、稼ぐ力に比べて大きい',s:'役員報酬、役員への貸付金、関係会社との取引',m:'役員報酬の、限界利益に対する割合',a:'社長、税理士',r:'経営者'},
+ {id:'d4',l:['debt'],v:2,y:'C5',t:'金融機関との取引を戦略的に管理しておらず、借入条件が不利になっている',s:'借入の一覧（金利、返済期間、保証）',m:'取引金融機関の数、平均金利',a:'社長、メインバンク',r:'取引金融機関数・推移／メインバンクとの関係'},
  {id:'x1',l:['price','vol','var','fix'],v:3,y:'C5',t:'現場の問題が経営に上がらない（言い出しにくい雰囲気がある）',s:'会議での発言の様子',m:'改善提案や報告の件数',a:'現場の中堅、若手',r:'社内会議の実施状況'},
  {id:'x2',l:['price','vol','var','fix'],v:0,y:'C5',t:'経営の優先順位が定まらず、手を付ける順番が決まらない',s:'経営計画、社長の時間の使い方',m:'社長が答えられる重点課題の数',a:'社長、幹部',r:'経営理念・ビジョン／事業計画'}
 ];
@@ -183,17 +193,20 @@ const C=()=>D.cur;
 const get=(o,p)=>p.split('.').reduce((a,k)=>a==null?a:a[k],o);
 const set=(o,p,v)=>{const ks=p.split('.');let a=o;ks.slice(0,-1).forEach(k=>{if(a[k]==null||typeof a[k]!=='object')a[k]={};a=a[k]});a[ks.at(-1)]=v};
 
+function lbNow(){try{return JSON.parse(localStorage.getItem('locaben-result'))}catch(e){return null}}
+function lb(){return C().lb||lbNow()}
 function bepNow(){try{return JSON.parse(localStorage.getItem('bep-result'))}catch(e){return null}}
 function bep(){return C().bep||bepNow()}
+function lbSyms(){const b=lb();if(!b||!b.ind)return[];return b.ind.filter(x=>x.sc).map(x=>({id:'lb_'+x.key,t:`${x.name.replace(/^[①-⑥]/,'')} ${x.disp}（ロカベン ${x.sc}点／5点${x.med?`、業種中央値 ${x.med}`:''}${x.prev?`、前期 ${x.prev}点`:''}）`,on:x.sc<=2,lev:LBLEV[x.key]||[]}))}
 function symptoms(){
- const r=bep(),L=[];if(!r||!(r.s>0))return L;
+ const r=bep(),L=[];if(!r||!(r.s>0))return lbSyms();
  const fr=r.F/(r.V+r.F);
  if(r.P<0)L.push({id:'loss',t:`経常利益が赤字（${fm(r.P)}${r.unit}）`,on:1,lev:['price','vol','var','fix']});
  L.push({id:'ratio',t:`損益分岐点比率 ${pc(r.ratio)}（売上が${r.safe>0?pc(r.safe)+'減ると赤字':'損益分岐点に届いていない'}）`,on:r.ratio>=.9,lev:['vol','fix']});
  L.push({id:'fix',t:`費用のうち固定費が ${pc(fr,0)} を占める`,on:fr>=.6,lev:['fix','vol']});
  L.push({id:'mr',t:`限界利益率 ${pc(r.mr)}（費用のうち変動費が ${pc(1-fr,0)}）`,on:fr<=.35,lev:['price','var']});
  const pv=num(C().prev);if(pv>0){const g=r.s/pv-1;L.push({id:'gr',t:`売上高が前期比 ${g>=0?'+':''}${pc(g)}`,on:g<0,lev:['vol','price']})}
- return L;
+ return L.concat(lbSyms());
 }
 const symOn=s=>C().sym[s.id]??!!s.on;
 function activeSyms(){return [...symptoms().filter(symOn),...C().cus.filter(c=>c.on!==false)]}
@@ -205,13 +218,14 @@ function hs(id){return C().hyp[id]||{}}
 function kept(){return [...hypList().filter(h=>hs(h.id).on).map(h=>({...h,...hs(h.id)})),...C().hc.map((h,i)=>({...h,id:'c'+i,custom:1}))]}
 function stOpts(v){return ['未確認','支持','反証','判断できない'].map(o=>`<option${(v||'未確認')===o?' selected':''}>${o}</option>`).join('')}
 
+function lbBox(){const b=lb();return b&&b.ind?`<p class="note">ロカベン財務6指標：総合 <b>${esc(b.rank||'—')}</b>（${b.tot||'—'}／30点、${esc(b.sub)}・${esc(b.size)}${b.ym?'・'+esc(b.ym):''}）。2点以下の指標を症状として選んでいます。</p>`:'<p class="note">ロカベン財務6指標を入力すると、その結果も症状として並びます。</p>'}
 function render(){
  const c=C(),r=bep();
  $('co').value=c.co||'';$('dt').value=c.date||'';$('prev').value=c.prev||'';
  // C1
  const now=bepNow();
  $('bepbox').innerHTML=r?`<div class="kv"><div><span>売上高</span><b>${fm(r.s)}</b></div><div><span>損益分岐点</span><b>${fm(r.bep)}</b></div><div><span>損益分岐点比率</span><b>${pc(r.ratio)}</b></div><div><span>経常利益</span><b>${fm(r.P)}</b></div></div><p class="note">業種：${esc(r.indName)}／単位：${esc(r.unit)}／${c.bep?'この診断に取り込み済みの数字です。':'損益分岐点ツールの最新の数字です。'} ${now&&c.bep&&JSON.stringify(now)!==JSON.stringify(c.bep)?'<button class="sm" id="rebep">最新の数字に差し替える</button>':''}</p>`
-  :`<div class="warn">損益分岐点ツールの数字がまだありません。<a href="./">損益分岐点ツール</a>で売上高と科目を入れると、ここに症状が並びます。症状を手で追加して進めることもできます。</div>`;
+  +lbBox():lbBox()+`<div class="warn">損益分岐点ツールの数字がまだありません。<a href="./">損益分岐点ツール</a>で売上高と科目を入れると、ここに症状が並びます。症状を手で追加して進めることもできます。</div>`;
  $('syms').innerHTML=symptoms().map(s=>`<label class="chk"><input type="checkbox" data-sym="${s.id}"${symOn(s)?' checked':''}><span>${esc(s.t)}</span></label>`).join('')+
   c.cus.map((s,i)=>`<label class="chk"><input type="checkbox" data-csym="${i}"${s.on!==false?' checked':''}><span style="flex:1">${esc(s.t)}</span><button class="sm" data-dsym="${i}">削除</button></label>`).join('');
  // C2
@@ -287,7 +301,7 @@ document.addEventListener('change',e=>{const t=e.target,d=t.dataset,c=C();
  else if(t.id==='imp'&&t.files[0]){const fr=new FileReader();fr.onload=()=>{try{const j=JSON.parse(fr.result);const add=Array.isArray(j)?j:j.recs||[];D.recs=[...D.recs,...add.filter(x=>x&&typeof x==='object')];render();$('imp').value='';msg('imp',`${add.length}件を読み込みました`)}catch(err){msg('imp','読み込めないファイルです')}};fr.readAsText(t.files[0])}
 });
 document.addEventListener('click',e=>{const t=e.target,d=t.dataset,c=C();
- if(t.id==='rebep'){c.bep=bepNow();render()}
+ if(t.id==='rebep'){c.bep=bepNow();c.lb=lbNow();render()}
  else if(t.id==='addsym'){const v=$('addsymt').value.trim();if(v){c.cus.push({id:'u'+Date.now(),t:v,on:true});$('addsymt').value='';render()}}
  else if(d.dsym!==undefined){e.preventDefault();c.cus.splice(+d.dsym,1);render()}
  else if(t.id==='addhyp'){const v=$('addhypt').value.trim();if(v){c.hc.push({t:v,v:$('addhypv').value,y:$('addhypl').value,st:'未確認'});$('addhypt').value='';render()}}
@@ -295,7 +309,7 @@ document.addEventListener('click',e=>{const t=e.target,d=t.dataset,c=C();
  else if(t.id==='addiv'){c.iv.push({cat:IVC[0]});render()}
  else if(d.ivdel!==undefined){c.iv.splice(+d.ivdel,1);render()}
  else if(t.id==='copy'){navigator.clipboard.writeText($('sum').textContent).then(()=>msg('copy','コピーしました'),()=>msg('copy','コピーできませんでした'))}
- else if(t.id==='save'){if(!c.bep)c.bep=bepNow();const rec=JSON.parse(JSON.stringify(c));const i=D.recs.findIndex(x=>x.co===rec.co&&x.date===rec.date);if(i>=0)D.recs[i]=rec;else D.recs.push(rec);render();msg('save','保存しました')}
+ else if(t.id==='save'){if(!c.bep)c.bep=bepNow();if(!c.lb)c.lb=lbNow();const rec=JSON.parse(JSON.stringify(c));const i=D.recs.findIndex(x=>x.co===rec.co&&x.date===rec.date);if(i>=0)D.recs[i]=rec;else D.recs.push(rec);render();msg('save','保存しました')}
  else if(t.id==='newd'){D.cur=blank();render();scrollTo(0,0)}
  else if(d.rl!==undefined){D.cur=JSON.parse(JSON.stringify(D.recs[+d.rl]));render();scrollTo(0,0)}
  else if(d.rd!==undefined){if(t.textContent==='削除'){t.textContent='本当に削除';return}D.recs.splice(+d.rd,1);render()}

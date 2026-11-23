@@ -184,7 +184,8 @@ function update(){
  });
  $('inds').innerHTML=okSize?html:`<div class="warn">${esc(sn||'業種と規模を確定してください')}</div>`+html;
  $('sum').innerHTML=[0,1,2].map(i=>`<div><span>${P[i]}${S.v.ym&&S.v.ym[i]?'（'+esc(S.v.ym[i])+'）':''}</span><div class="r">${cnt[i]?rank(tot[i]):'—'}</div><span>総合 ${cnt[i]?tot[i]:'—'} / 30点${cnt[i]&&cnt[i]<6?`（${6-cnt[i]}指標が未算出）`:''}</span></div>`).join('');
- try{localStorage.setItem('locaben-result',JSON.stringify({sub:S.sub,size,tot,C:C.map(c=>({sales:c.sales,opm:c.opm,lp:c.lp,ebitda:c.ebitda,wc:c.wc,eq:c.eq}))}))}catch(e){}
+ try{const ind=B.indicators.map(x=>{const bb=okSize?bench(x.key,size):null;const out=[0,1,2].map(i=>({v:C[i][x.key],sc:score(x.key,x.dir,C[i][x.key],bb,C[i])}));return{key:x.key,name:x.name,disp:show(x,out[0].v)+(x.key==='ebitda'&&isFinite(C[0]._nd)&&C[0]._nd<=0?'（実質無借金）':''),sc:out[0].sc,prev:out[1].sc,med:bb?showT(x,bb.med)+(x.unit==='%'?'':x.unit):''}});
+  localStorage.setItem('locaben-result',JSON.stringify({sub:S.sub,size,tot:tot[0],rank:cnt[0]?rank(tot[0]):'',ym:(S.v.ym||[])[0]||'',ind}))}catch(e){}
  save();
 }
 function text(){
