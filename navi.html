@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#00875a">
+<title>診断の仮説ナビ</title>
+<style>
+/* VOICE: 診断の現場で使う道具。冷静、装飾なし
+   IDEA: 症状から原因、打ち手、検証までを順に埋める診断記録票
+   PICTURE: 上部の工程表（C1〜C9）と、症状→仮説のカード
+   COLOUR and TYPE: 白地、墨、エメラルド1色、警告は黄、反証は朱。端末標準の日本語書体
+   LAYOUT: 1列。工程ごとの帯。上部に工程の目次 */
+:root{color-scheme:light dark;--bg:light-dark(#fff,#07130e);--ink:light-dark(#111a16,#e8f1ec);--sub:light-dark(#5b6762,#9fb0a8);--line:light-dark(#dfe5e2,#22332b);--soft:light-dark(#f3f7f5,#0f2019);--ac:light-dark(#00875a,#3fd39a);--acs:light-dark(#d9f2e7,#123a2a);--red:light-dark(#c8341b,#ff7a5e);--warn:light-dark(#9a6a00,#f0c050)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",Meiryo,system-ui,sans-serif;overflow-x:clip}
+.wrap{max-width:900px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) max(4vw,16px) 80px}
+h1{font-size:clamp(24px,3.4vw,32px);line-height:1.15;margin:0 0 6px;font-weight:800}
+h2{font-size:20px;margin:0 0 4px;font-weight:800}
+h2 small{font-size:13px;color:var(--ac);font-weight:600;margin-right:6px}
+p{margin:0 0 10px}.note{font-size:13px;color:var(--sub)}
+nav.steps{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);display:flex;gap:6px;overflow-x:auto;padding:8px 0;margin:10px 0 0}
+nav.steps a{flex:none;font-size:13px;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:6px 10px;white-space:nowrap}
+nav.steps a.done{background:var(--acs);border-color:var(--ac)}
+section{padding:22px 0;border-bottom:1px solid var(--line);scroll-margin-top:56px}
+input[type=text],input[type=date],textarea,select{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:44px;width:100%}
+textarea{min-height:64px;resize:vertical}
+input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+button{font:inherit;font-size:15px;min-height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--soft);color:var(--ink);cursor:pointer}
+button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+button.sm{min-height:34px;font-size:13px;padding:0 10px}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.chk{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.chk input[type=checkbox]{width:22px;height:22px;margin-top:2px;accent-color:var(--ac);flex:none}
+.card{border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;background:var(--bg)}
+.card.on{border-color:var(--ac);background:linear-gradient(var(--acs),var(--bg) 60px)}
+.card.ng{opacity:.6}
+.tag{display:inline-block;font-size:12px;color:var(--sub);border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-right:4px;white-space:nowrap}
+.tag.c5{color:var(--ac);border-color:var(--ac)}
+.facts{display:grid;grid-template-columns:5em minmax(0,1fr);gap:2px 8px;font-size:14px;margin:8px 0}
+.facts b{color:var(--sub);font-weight:600}
+.grp{font-weight:800;margin:18px 0 4px}
+.warn{padding:10px 12px;border-radius:8px;background:color-mix(in srgb,var(--warn) 18%,transparent);margin:10px 0}
+.ok{padding:10px 12px;border-radius:8px;background:var(--acs);margin:10px 0}
+.kv{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0}
+.kv div{border-top:1px solid var(--line);padding-top:4px}.kv span{font-size:12px;color:var(--sub);display:block}.kv b{font-size:18px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.score{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.score label{font-size:12px;color:var(--sub)}
+pre.out{white-space:pre-wrap;background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:12px;font:14px/1.6 inherit;font-family:inherit}
+table{border-collapse:collapse;width:100%;font-size:14px}td,th{padding:6px;border-bottom:1px solid var(--line);text-align:left}
+a{color:var(--ac)}
+@media(max-width:600px){.row2,.kv{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.score{grid-template-columns:repeat(3,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="note"><a href="./">← 損益分岐点ツールへ</a></p>
+  <h1>診断の仮説ナビ</h1>
+  <p class="note">損益分岐点で見えた数字の症状から、原因の仮説、確認すべき事実、打ち手、検証までを順に詰めます。工程はCAUSE-9、仮説の候補はローカルベンチマーク（ロカベン）の非財務「4つの視点」に沿っています。</p>
+  <div class="row2" style="margin-top:10px">
+    <div><label class="note" for="co">会社名（この端末にのみ保存）</label><input type="text" id="co" data-k="co"></div>
+    <div><label class="note" for="dt">診断日</label><input type="date" id="dt" data-k="date"></div>
+  </div>
+  <div class="ctl"><button id="newd">新しい診断を始める</button><button id="save" class="pri">この診断を記録に保存</button></div>
+  <nav class="steps" id="steps"></nav>
+
+  <section id="c1"><h2><small>C1</small>事象：数字に表れた症状</h2>
+    <p class="note">解釈を書かず、事実だけを選びます。損益分岐点ツールの最新の結果から自動で並べています。</p>
+    <div id="bepbox"></div>
+    <div class="row2"><div><label class="note" for="prev">前期の売上高（任意・同じ単位）</label><input type="text" id="prev" inputmode="decimal" data-k="prev"></div><div></div></div>
+    <div id="syms"></div>
+    <div class="ctl"><input type="text" id="addsymt" placeholder="症状を追加（例：主要顧客A社の受注が前年比30%減）" style="flex:1"><button id="addsym">追加</button></div>
+  </section>
+
+  <section id="c2"><h2><small>C2</small>期待状態：本来どうあるべきか</h2>
+    <p class="note">原因は、期待との差からしか定義できません。症状ごとに、あるべき水準（前期の水準、計画値、業種の水準など）を書きます。</p>
+    <div id="exps"></div>
+  </section>
+
+  <section id="c3"><h2><small>C3</small>直接原因：どの数字がずれたのか</h2>
+    <p class="note">利益を動かすのは、単価・販売数量・変動費・固定費の4つです。症状から疑わしいものに印を付けています。まだ真因ではなく、最後のずれです。</p>
+    <div id="levs"></div>
+  </section>
+
+  <section id="c45"><h2><small>C4・C5</small>背景条件と構造要因：仮説の候補</h2>
+    <p class="note">選んだずれについて、ロカベンの4つの視点から仮説の候補を並べています。<span class="tag">C4</span>は業務の進め方の問題、<span class="tag c5">C5</span>はそれを放置させている組織・経営の問題です。候補に残すものに印を付け、現場で確かめた結果を記録してください。</p>
+    <div id="hyps"></div>
+    <div class="card"><b>候補にない仮説を追加する</b>
+      <textarea id="addhypt" placeholder="例：社長が見積に関与せず、営業担当が受注欲しさに値引きしている"></textarea>
+      <div class="row2" style="margin-top:8px"><select id="addhypv"><option>経営者</option><option>事業</option><option>企業を取り巻く環境・関係者</option><option>内部管理体制</option></select><select id="addhypl"><option value="C4">C4 業務の進め方</option><option value="C5">C5 組織・経営の構造</option></select></div>
+      <div class="ctl"><button id="addhyp">仮説を追加</button></div></div>
+  </section>
+
+  <section id="c7"><h2><small>C7</small>競合仮説：最初の説明に飛びつかない</h2>
+    <div id="c7box"></div>
+  </section>
+
+  <section id="c6"><h2><small>C6</small>反事実点検：何を1つ変えていたら結果は変わったか</h2>
+    <p class="note">現場で「支持」された仮説について、因果の強さを確かめます。支持された仮説がなければ、候補に残した仮説が対象です。</p>
+    <div id="cfs"></div>
+  </section>
+
+  <section id="c8"><h2><small>C8</small>介入レバー：どこを変えるか、誰がいつ何から始めるか</h2>
+    <p class="note">各基準を3段階で評価します（3＝良い。副作用は「小さい」ほど3）。合計点の高い順に並びます。実行されなければ価値がないので、担当・期限・最初の一歩・阻む要因まで書きます。</p>
+    <div id="ivs"></div>
+    <div class="ctl"><button id="addiv">打ち手を追加</button></div>
+  </section>
+
+  <section id="c9"><h2><small>C9</small>検証計画：効いたと、どう確かめるか</h2>
+    <div class="row2">
+      <div><label class="note">見る指標</label><input type="text" data-k="ver.kpi" placeholder="例：限界利益率、主要3製品の値上げ通過率"></div>
+      <div><label class="note">確認する期間</label><input type="text" data-k="ver.months" placeholder="例：6か月（毎月確認）"></div>
+      <div><label class="note">確認する人</label><input type="text" data-k="ver.who" placeholder="例：社長と診断士で月次会議"></div>
+      <div><label class="note">効かなかったときの次善策</label><input type="text" data-k="ver.alt"></div>
+    </div>
+    <label class="note" style="display:block;margin-top:10px">学習を仕組みに残す：どの規程・帳票・会議・評価に組み込むか</label><textarea data-k="ver.inst"></textarea>
+    <label class="note" style="display:block;margin-top:10px">水平展開：同じ構造要因が潜んでいそうな他の業務・部門</label><textarea data-k="ver.spread"></textarea>
+  </section>
+
+  <section id="out"><h2>診断の一枚</h2>
+    <p class="note">ここまでの内容を一枚にまとめたものです。社内の記録や報告書の下書きに使えます。</p>
+    <pre class="out" id="sum"></pre>
+    <div class="ctl"><button id="copy" class="pri">一枚をコピー</button></div>
+  </section>
+
+  <section id="rec"><h2>診断の記録</h2>
+    <p class="note">保存した診断はこの端末にのみ残ります。端末を替えるときや控えを取るときは、書き出したファイルを保管してください。件数がたまるほど、会社どうしの比較に使えます。</p>
+    <div id="recs"></div>
+    <div class="ctl"><button id="exp">記録をファイルに書き出す</button><label class="note" style="display:flex;align-items:center;gap:6px">ファイルから読み込む <input type="file" id="imp" accept=".json,application/json"></label></div>
+  </section>
+
+  <p class="note">出典：ロカベンの4つの視点と小項目は、経済産業省「ローカルベンチマーク・ガイドブック（支援機関編）SDGs/DX対応版」によります。各仮説の文言と、症状から仮説への対応づけは本ツールの暫定設定です。</p>
+</div>
+
+<script>
+{
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fm=n=>isFinite(n)?Math.round(n).toLocaleString('ja-JP'):'—';
+const pc=(n,d=1)=>isFinite(n)?(n*100).toFixed(d)+'%':'—';
+const num=v=>{const n=parseFloat(String(v??'').replace(/[,，\s]/g,''));return isFinite(n)?n:NaN};
+const VIEWS=['経営者','事業','企業を取り巻く環境・関係者','内部管理体制'];
+const LEV={price:'単価',vol:'販売数量',var:'変動費（原価）',fix:'固定費'};
+// 仮説ライブラリ（ロカベン4つの視点の小項目に対応）: l=関係するずれ, v=視点, y=層, t=仮説, s=見るもの, m=測るもの, a=聞く相手, r=ロカベン小項目
+const H=[
+ {id:'p1',l:['price'],v:2,y:'C4',t:'競合との違いが打ち出せず、相見積もりで価格が決まっている',s:'見積書、失注した案件の理由',m:'相見積もりの割合、見積の受注率、値引き率',a:'営業担当',r:'競合他社との比較'},
+ {id:'p2',l:['price'],v:2,y:'C5',t:'上位の顧客に売上が集中し、価格交渉で弱い立場にある',s:'得意先別の売上表',m:'上位3社の売上比率、その推移',a:'社長、経理',r:'主な取引先企業の推移'},
+ {id:'p3',l:['price','vol'],v:1,y:'C4',t:'強みが顧客に伝わる形になっておらず、指名されない（ブランドの弱さ）',s:'会社案内、ホームページ、提案書',m:'指名・紹介による受注の割合',a:'主要顧客2〜3社、営業担当',r:'強み（技術力・販売力等）'},
+ {id:'p4',l:['price'],v:0,y:'C5',t:'値決めの方針がなく、原価の積み上げや前例で価格を決めている',s:'見積の算定方法、値上げの履歴',m:'過去3年の値上げ実施回数',a:'社長、見積担当',r:'経営理念・ビジョン'},
+ {id:'p5',l:['price','var'],v:2,y:'C4',t:'仕入価格の上昇を販売価格に転嫁できていない',s:'主要材料の仕入単価と販売単価の推移',m:'仕入単価の上昇率と販売単価の上昇率の差',a:'購買担当、営業担当',r:'市場動向・規模・シェアの把握'},
+ {id:'v1',l:['var'],v:1,y:'C4',t:'材料のロス、不良、手直しが多い',s:'製造現場、不良記録、廃棄物',m:'歩留まり、不良率、手直しの時間',a:'製造責任者、現場の中堅',r:'強み・弱み'},
+ {id:'v2',l:['var'],v:3,y:'C5',t:'品質やロスを記録・管理する仕組みがなく、問題が見えていない',s:'品質記録、日報',m:'記録されている不良の件数と実際の差',a:'品質担当、現場の中堅',r:'品質管理・情報管理体制'},
+ {id:'v3',l:['var','price'],v:1,y:'C4',t:'粗利の低い製品・案件に売上が偏っている',s:'製品別・得意先別の売上と原価',m:'製品別の限界利益率',a:'社長、経理',r:'強み・弱み'},
+ {id:'v4',l:['var'],v:3,y:'C5',t:'製品別・案件別の原価を把握する仕組みがない',s:'原価計算の方法、見積と実績の比較',m:'見積原価と実際原価の差',a:'経理、製造責任者',r:'品質管理・情報管理体制'},
+ {id:'v5',l:['var'],v:1,y:'C4',t:'外注への依存が高く、外注単価が上がっている',s:'外注先別の発注額',m:'外注費率の推移、内製した場合の原価',a:'製造責任者、購買担当',r:'強み・弱み'},
+ {id:'q1',l:['vol'],v:2,y:'C4',t:'既存顧客の離脱や、取引量の減少が起きている',s:'得意先別売上の3期比較',m:'顧客リピート率、取引先数の推移',a:'営業担当、主要顧客',r:'顧客リピート率・新規開拓率'},
+ {id:'q2',l:['vol'],v:2,y:'C5',t:'新規顧客を開拓する仕組みや担当がない',s:'営業活動の記録、新規の問い合わせ経路',m:'新規開拓率、新規顧客の売上比率',a:'営業担当、社長',r:'顧客リピート率・新規開拓率'},
+ {id:'q3',l:['vol'],v:2,y:'C4',t:'市場そのものが縮小している、またはシェアを落としている',s:'業界統計、業界団体の資料',m:'市場規模の推移と自社売上の推移の比較',a:'業界団体、仕入先',r:'市場動向・規模・シェアの把握'},
+ {id:'q4',l:['vol'],v:2,y:'C4',t:'顧客の声を聞いておらず、要望の変化に気づいていない',s:'クレーム・要望の記録',m:'顧客の声を集める頻度',a:'主要顧客、営業担当',r:'顧客からのフィードバックの有無'},
+ {id:'q5',l:['vol'],v:3,y:'C5',t:'売上目標や計画が社員に共有されず、営業が個人任せになっている',s:'事業計画、営業会議の議事録',m:'目標を言える社員の割合',a:'営業担当、社員',r:'事業計画・経営計画の有無／従業員との共有状況'},
+ {id:'q6',l:['vol','fix'],v:0,y:'C5',t:'社長の成長意欲の低下や、事業承継の見通しのなさが、攻めの投資を止めている',s:'後継者の有無と育成状況',m:'直近3年の新しい取り組みの数',a:'社長、後継者候補',r:'経営意欲／後継者の有無・育成状況'},
+ {id:'f1',l:['fix'],v:1,y:'C4',t:'1時間当たりの付加価値（生産性）が低い',s:'作業の流れ、段取り替え',m:'1時間当たり付加価値、人時生産性',a:'製造責任者、現場',r:'1時間当たり付加価値（生産性）'},
+ {id:'f2',l:['fix'],v:1,y:'C4',t:'設備の稼働率が低い、または設備が過大',s:'設備ごとの稼働状況',m:'稼働率、減価償却費の売上比率',a:'製造責任者',r:'強み・弱み'},
+ {id:'f3',l:['fix'],v:3,y:'C5',t:'組織や役割があいまいで、間接部門の人員が多い',s:'組織図、業務分担表',m:'間接人員の比率',a:'社長、総務',r:'組織体制'},
+ {id:'f4',l:['fix','var'],v:1,y:'C4',t:'ITの活用が遅れ、転記や手作業が多い',s:'受注から請求までの帳票の流れ',m:'同じ情報を書き写す回数',a:'事務担当',r:'ITに関する投資、活用の状況'},
+ {id:'f5',l:['fix'],v:3,y:'C5',t:'人材育成の仕組みがなく、多能工化できず人を増やして対応している',s:'教育の記録、スキル表',m:'1人が担える工程の数',a:'製造責任者、若手社員',r:'人材育成の取り組み状況・仕組み'},
+ {id:'f6',l:['fix'],v:2,y:'C4',t:'社員の定着が悪く、採用と教育の費用がかさんでいる',s:'退職者の記録、退職理由',m:'離職率、平均勤続年数、平均給与',a:'総務、社員',r:'従業員定着率／勤続年数・平均給与'},
+ {id:'x1',l:['price','vol','var','fix'],v:3,y:'C5',t:'現場の問題が経営に上がらない（言い出しにくい雰囲気がある）',s:'会議での発言の様子',m:'改善提案や報告の件数',a:'現場の中堅、若手',r:'社内会議の実施状況'},
+ {id:'x2',l:['price','vol','var','fix'],v:0,y:'C5',t:'経営の優先順位が定まらず、手を付ける順番が決まらない',s:'経営計画、社長の時間の使い方',m:'社長が答えられる重点課題の数',a:'社長、幹部',r:'経営理念・ビジョン／事業計画'}
+];
+const IVC=['価格・取引条件の変更','商品・顧客構成の変更','販路・営業方法の変更','ルール・手順の変更','帳票・記録の変更','情報の流れの変更','権限・役割の変更','設備・ITの変更','教育の変更','評価・報酬の変更'];
+const KEY='navi-v1';
+const blank=()=>({co:'',date:new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),prev:'',bep:null,sym:{},cus:[],exp:{},lev:null,hyp:{},hc:[],cf:{},iv:[],ver:{}});
+let D={cur:blank(),recs:[]};
+try{const j=JSON.parse(localStorage.getItem(KEY));if(j&&j.cur)D=j}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}};
+const C=()=>D.cur;
+const get=(o,p)=>p.split('.').reduce((a,k)=>a==null?a:a[k],o);
+const set=(o,p,v)=>{const ks=p.split('.');let a=o;ks.slice(0,-1).forEach(k=>{if(a[k]==null||typeof a[k]!=='object')a[k]={};a=a[k]});a[ks.at(-1)]=v};
+
+function bepNow(){try{return JSON.parse(localStorage.getItem('bep-result'))}catch(e){return null}}
+function bep(){return C().bep||bepNow()}
+function symptoms(){
+ const r=bep(),L=[];if(!r||!(r.s>0))return L;
+ const fr=r.F/(r.V+r.F);
+ if(r.P<0)L.push({id:'loss',t:`経常利益が赤字（${fm(r.P)}${r.unit}）`,on:1,lev:['price','vol','var','fix']});
+ L.push({id:'ratio',t:`損益分岐点比率 ${pc(r.ratio)}（売上が${r.safe>0?pc(r.safe)+'減ると赤字':'損益分岐点に届いていない'}）`,on:r.ratio>=.9,lev:['vol','fix']});
+ L.push({id:'fix',t:`費用のうち固定費が ${pc(fr,0)} を占める`,on:fr>=.6,lev:['fix','vol']});
+ L.push({id:'mr',t:`限界利益率 ${pc(r.mr)}（費用のうち変動費が ${pc(1-fr,0)}）`,on:fr<=.35,lev:['price','var']});
+ const pv=num(C().prev);if(pv>0){const g=r.s/pv-1;L.push({id:'gr',t:`売上高が前期比 ${g>=0?'+':''}${pc(g)}`,on:g<0,lev:['vol','price']})}
+ return L;
+}
+const symOn=s=>C().sym[s.id]??!!s.on;
+function activeSyms(){return [...symptoms().filter(symOn),...C().cus.filter(c=>c.on!==false)]}
+function suggestedLev(){const o={};symptoms().filter(symOn).forEach(s=>s.lev.forEach(l=>o[l]=1));return o}
+function levOn(k){const l=C().lev;return l?!!l[k]:!!suggestedLev()[k]}
+function tol(r){if(!r||!(r.s>0)||!(r.mr>0))return{};const n=Math.abs(r.P),MP=r.s-r.V;return{price:n/r.s,vol:n/MP,var:r.V?n/r.V:NaN,fix:r.F?n/r.F:NaN}}
+function hypList(){const ls=Object.keys(LEV).filter(levOn);return H.filter(h=>h.l.some(l=>ls.includes(l)))}
+function hs(id){return C().hyp[id]||{}}
+function kept(){return [...hypList().filter(h=>hs(h.id).on).map(h=>({...h,...hs(h.id)})),...C().hc.map((h,i)=>({...h,id:'c'+i,custom:1}))]}
+function stOpts(v){return ['未確認','支持','反証','判断できない'].map(o=>`<option${(v||'未確認')===o?' selected':''}>${o}</option>`).join('')}
+
+function render(){
+ const c=C(),r=bep();
+ $('co').value=c.co||'';$('dt').value=c.date||'';$('prev').value=c.prev||'';
+ // C1
+ const now=bepNow();
+ $('bepbox').innerHTML=r?`<div class="kv"><div><span>売上高</span><b>${fm(r.s)}</b></div><div><span>損益分岐点</span><b>${fm(r.bep)}</b></div><div><span>損益分岐点比率</span><b>${pc(r.ratio)}</b></div><div><span>経常利益</span><b>${fm(r.P)}</b></div></div><p class="note">業種：${esc(r.indName)}／単位：${esc(r.unit)}／${c.bep?'この診断に取り込み済みの数字です。':'損益分岐点ツールの最新の数字です。'} ${now&&c.bep&&JSON.stringify(now)!==JSON.stringify(c.bep)?'<button class="sm" id="rebep">最新の数字に差し替える</button>':''}</p>`
+  :`<div class="warn">損益分岐点ツールの数字がまだありません。<a href="./">損益分岐点ツール</a>で売上高と科目を入れると、ここに症状が並びます。症状を手で追加して進めることもできます。</div>`;
+ $('syms').innerHTML=symptoms().map(s=>`<label class="chk"><input type="checkbox" data-sym="${s.id}"${symOn(s)?' checked':''}><span>${esc(s.t)}</span></label>`).join('')+
+  c.cus.map((s,i)=>`<label class="chk"><input type="checkbox" data-csym="${i}"${s.on!==false?' checked':''}><span style="flex:1">${esc(s.t)}</span><button class="sm" data-dsym="${i}">削除</button></label>`).join('');
+ // C2
+ const as=activeSyms();
+ $('exps').innerHTML=as.length?as.map(s=>`<div style="margin:10px 0"><div style="font-weight:600">${esc(s.t)}</div><input type="text" data-k="exp.${s.id}" value="${esc(c.exp[s.id]||'')}" placeholder="あるべき水準（例：前期並み、80%台、計画値○○）"></div>`).join(''):'<p class="note">C1で症状を選ぶと、ここに並びます。</p>';
+ // C3
+ const t=tol(r),sg=suggestedLev();
+ $('levs').innerHTML=Object.entries(LEV).map(([k,n])=>`<label class="chk"><input type="checkbox" data-lev="${k}"${levOn(k)?' checked':''}><span><b>${n}</b>${sg[k]?' <span class="tag">症状から推定</span>':''}<br><span class="note">${isFinite(t[k])?(r.P<0?`この数字だけで黒字化するには ${pc(t[k])} の改善が必要`:`この数字が ${pc(t[k])} 悪化すると赤字`):''}</span></span></label>`).join('');
+ // C4/C5
+ const hl=hypList();
+ $('hyps').innerHTML=hl.length?VIEWS.map((vn,vi)=>{const g=hl.filter(h=>h.v===vi);if(!g.length)return'';return`<div class="grp">${vn}</div>`+g.map(h=>{const s=hs(h.id);return`<div class="card${s.on?' on':''}${s.st==='反証'?' ng':''}"><label class="chk" style="border:0;padding:0"><input type="checkbox" data-hon="${h.id}"${s.on?' checked':''}><span><span class="tag${h.y==='C5'?' c5':''}">${h.y}</span><b>${esc(h.t)}</b></span></label>
+  <div class="facts"><b>見る</b><span>${esc(h.s)}</span><b>測る</b><span>${esc(h.m)}</span><b>聞く</b><span>${esc(h.a)}</span><b>ロカベン</b><span>${esc(h.r)}</span></div>
+  ${s.on?`<div class="row2"><select data-hst="${h.id}">${stOpts(s.st)}</select><input type="text" data-hmemo="${h.id}" value="${esc(s.memo||'')}" placeholder="確かめた事実（数字・発言）"></div>`:''}</div>`}).join('')}).join(''):'<p class="note">C3でずれを選ぶと、仮説の候補が並びます。</p>';
+ $('hyps').innerHTML+=c.hc.map((h,i)=>`<div class="card on${h.st==='反証'?' ng':''}"><div><span class="tag${h.y==='C5'?' c5':''}">${h.y}</span><span class="tag">${esc(h.v)}</span><span class="tag">追加</span><b>${esc(h.t)}</b></div><div class="row2" style="margin-top:8px"><select data-hcst="${i}">${stOpts(h.st)}</select><input type="text" data-hcmemo="${i}" value="${esc(h.memo||'')}" placeholder="確かめた事実（数字・発言）"></div><div class="ctl"><button class="sm" data-hcdel="${i}">削除</button></div></div>`).join('');
+ // C7
+ const k=kept(),alive=k.filter(h=>h.st!=='反証'),cust=c.hc.length,sup=k.filter(h=>h.st==='支持'),c5=k.filter(h=>h.y==='C5');
+ const w=[];
+ if(k.length<3)w.push(`候補に残した仮説が ${k.length}件です。最低3つの仮説を並べてから絞り込んでください。`);
+ if(!cust)w.push('一覧にない仮説を、少なくとも1つご自身で追加してください。用意された候補だけで考えると、それが新たな思い込みになります。');
+ if(k.length&&!c5.length)w.push('C5（組織・経営の構造）の仮説がありません。なぜその問題が放置されてきたのかを問う仮説を加えてください。');
+ if(sup.length>1)w.push(`「支持」が ${sup.length}件あります。どれが主因で、どれが従か、C6で因果の強さを比べてください。`);
+ $('c7box').innerHTML=`<p>候補 ${k.length}件（支持 ${sup.length}・反証 ${k.filter(h=>h.st==='反証').length}・未確認 ${k.filter(h=>!h.st||h.st==='未確認').length}）</p>`+(w.length?w.map(x=>`<div class="warn">${x}</div>`).join(''):'<div class="ok">複数の仮説を並べ、構造の仮説も含めて検討できています。</div>')+
+  (k.length?`<table><thead><tr><th>仮説</th><th>層</th><th>現場での確認</th></tr></thead><tbody>${k.map(h=>`<tr><td>${esc(h.t)}</td><td>${h.y}</td><td>${esc(h.st||'未確認')}</td></tr>`).join('')}</tbody></table>`:'');
+ // C6
+ const tgt=sup.length?sup:alive;
+ $('cfs').innerHTML=tgt.length?tgt.map(h=>{const f=c.cf[h.id]||{};return`<div class="card"><b>${esc(h.t)}</b><textarea data-k="cf.${h.id}.t" placeholder="これを1つ変えていたら、症状はどう変わっていたか（例：値決めのルールがあれば、昨年の材料高騰時に価格改定できていた）">${esc(f.t||'')}</textarea><div class="row2" style="margin-top:8px"><select data-k="cf.${h.id}.s">${['因果の強さ：未判定','強い（これだけで症状の大半が説明できる）','中程度','弱い（他の要因の方が大きい）'].map(o=>`<option${f.s===o?' selected':''}>${o}</option>`).join('')}</select></div></div>`}).join(''):'<p class="note">C4・C5で仮説を候補に残すと、ここに並びます。</p>';
+ // C8
+ const ivs=c.iv.map((v,i)=>({...v,i,sc:['e','f','s','d','x'].reduce((a,q)=>a+(+v[q]||0),0)})).sort((a,b)=>b.sc-a.sc);
+ $('ivs').innerHTML=ivs.length?ivs.map(v=>`<div class="card"><div class="row2"><select data-iv="${v.i}.cat">${IVC.map(o=>`<option${v.cat===o?' selected':''}>${o}</option>`).join('')}</select><div style="text-align:right;font-weight:800">評価 ${v.sc} / 15</div></div>
+  <input type="text" data-iv="${v.i}.what" value="${esc(v.what||'')}" placeholder="打ち手の中身" style="margin-top:8px">
+  <div class="score" style="margin-top:8px">${[['e','効果'],['f','実行しやすさ'],['s','速さ'],['d','定着しやすさ'],['x','副作用の小ささ']].map(([q,n])=>`<label>${n}<select data-iv="${v.i}.${q}">${['','1','2','3'].map(o=>`<option${(v[q]||'')===o?' selected':''}>${o}</option>`).join('')}</select></label>`).join('')}</div>
+  <div class="row2" style="margin-top:8px"><input type="text" data-iv="${v.i}.who" value="${esc(v.who||'')}" placeholder="誰が"><input type="text" data-iv="${v.i}.due" value="${esc(v.due||'')}" placeholder="いつまでに"><input type="text" data-iv="${v.i}.first" value="${esc(v.first||'')}" placeholder="最初の一歩（明日できること）"><input type="text" data-iv="${v.i}.res" value="${esc(v.res||'')}" placeholder="使う資源（人・時間・費用）"></div>
+  <input type="text" data-iv="${v.i}.block" value="${esc(v.block||'')}" placeholder="実行を阻む要因" style="margin-top:8px">
+  <div class="ctl"><button class="sm" data-ivdel="${v.i}">削除</button></div></div>`).join(''):'<p class="note">「打ち手を追加」で候補を書きます。</p>';
+ // nav
+ const done={c1:as.length>0,c2:as.length&&as.every(s=>c.exp[s.id]),c3:Object.keys(LEV).some(levOn),c45:k.some(h=>h.st&&h.st!=='未確認'),c7:k.length>=3&&cust>0,c6:tgt.some(h=>c.cf[h.id]&&c.cf[h.id].t),c8:c.iv.some(v=>v.what&&v.who&&v.due),c9:!!(c.ver&&c.ver.kpi)};
+ $('steps').innerHTML=[['c1','C1 事象'],['c2','C2 期待'],['c3','C3 直接原因'],['c45','C4・C5 仮説'],['c7','C7 競合仮説'],['c6','C6 反事実'],['c8','C8 打ち手'],['c9','C9 検証'],['out','一枚'],['rec','記録']].map(([id,n])=>`<a href="#${id}" class="${done[id]?'done':''}">${n}</a>`).join('');
+ document.querySelectorAll('[data-k]').forEach(el=>{if(el.id==='co'||el.id==='dt'||el.id==='prev'||el.tagName==='SELECT'||el.closest('#exps')||el.closest('#cfs'))return;el.value=get(c,el.dataset.k)||''});
+ summary();renderRecs();save();
+}
+
+function summary(){
+ const c=C(),r=bep(),k=kept(),as=activeSyms(),L=[];
+ L.push(`【診断の一枚】${c.co||'（会社名未記入）'}　${c.date||''}`);
+ if(r)L.push(`損益分岐点売上高 ${fm(r.bep)}${r.unit}／売上高 ${fm(r.s)}${r.unit}／損益分岐点比率 ${pc(r.ratio)}／経常利益 ${fm(r.P)}${r.unit}`);
+ L.push('','■症状と期待状態（C1・C2）');as.forEach(s=>L.push(`・${s.t}${c.exp[s.id]?` → あるべき姿：${c.exp[s.id]}`:''}`));
+ L.push('','■ずれている数字（C3）',`・${Object.keys(LEV).filter(levOn).map(x=>LEV[x]).join('、')||'未選択'}`);
+ L.push('','■原因の仮説と確認結果（C4・C5・C7）');['支持','未確認','判断できない','反証'].forEach(st=>k.filter(h=>(h.st||'未確認')===st).forEach(h=>L.push(`・［${st}］(${h.y}) ${h.t}${h.memo?`／事実：${h.memo}`:''}`)));
+ const cf=Object.entries(c.cf).filter(([,v])=>v&&v.t);if(cf.length){L.push('','■反事実点検（C6）');cf.forEach(([id,v])=>{const h=k.find(x=>x.id===id);if(h)L.push(`・${h.t}：${v.t}${v.s&&v.s!=='因果の強さ：未判定'?`（${v.s}）`:''}`)})}
+ const iv=c.iv.map(v=>({...v,sc:['e','f','s','d','x'].reduce((a,q)=>a+(+v[q]||0),0)})).sort((a,b)=>b.sc-a.sc).filter(v=>v.what);
+ if(iv.length){L.push('','■打ち手（C8・評価の高い順）');iv.forEach(v=>L.push(`・${v.what}［${v.cat||''}・評価${v.sc}/15］ 担当：${v.who||'未定'}／期限：${v.due||'未定'}／最初の一歩：${v.first||'未定'}${v.res?`／資源：${v.res}`:''}${v.block?`／阻む要因：${v.block}`:''}`))}
+ const vr=c.ver||{};if(vr.kpi||vr.months||vr.who||vr.alt||vr.inst||vr.spread){L.push('','■検証計画（C9）');[['指標',vr.kpi],['期間',vr.months],['確認者',vr.who],['次善策',vr.alt],['仕組みへの組み込み',vr.inst],['水平展開',vr.spread]].forEach(([n,v])=>v&&L.push(`・${n}：${v}`))}
+ $('sum').textContent=L.join('\n');
+}
+function renderRecs(){
+ $('recs').innerHTML=D.recs.length?`<table><thead><tr><th>会社</th><th>診断日</th><th>比率</th><th></th></tr></thead><tbody>${D.recs.map((x,i)=>`<tr><td>${esc(x.co||'（無名）')}</td><td>${esc(x.date||'')}</td><td>${x.bep?pc(x.bep.ratio):'—'}</td><td style="text-align:right;white-space:nowrap"><button class="sm" data-rl="${i}">開く</button> <button class="sm" data-rd="${i}">削除</button></td></tr>`).join('')}</tbody></table>`:'<p class="note">まだ記録はありません。</p>';
+}
+
+document.addEventListener('input',e=>{const t=e.target,d=t.dataset,c=C();
+ if(d.k){set(c,d.k,t.value);if(d.k==='prev'){render();t.focus();return}summary();save();return}
+ if(d.hmemo){c.hyp[d.hmemo]={...hs(d.hmemo),memo:t.value};summary();save();return}
+ if(d.hcmemo!==undefined){c.hc[d.hcmemo].memo=t.value;summary();save();return}
+ if(d.iv){const [i,f]=d.iv.split('.');c.iv[i][f]=t.value;if(t.tagName==='SELECT')render();else{summary();save()}}
+});
+document.addEventListener('change',e=>{const t=e.target,d=t.dataset,c=C();
+ if(d.sym){c.sym[d.sym]=t.checked;c.lev=null;render()}
+ else if(d.csym!==undefined){c.cus[d.csym].on=t.checked;render()}
+ else if(d.lev){const o={};Object.keys(LEV).forEach(x=>o[x]=levOn(x));o[d.lev]=t.checked;c.lev=o;render()}
+ else if(d.hon){c.hyp[d.hon]={...hs(d.hon),on:t.checked};render()}
+ else if(d.hst){c.hyp[d.hst]={...hs(d.hst),st:t.value};render()}
+ else if(d.hcst!==undefined){c.hc[d.hcst].st=t.value;render()}
+ else if(d.k&&t.tagName==='SELECT'){set(c,d.k,t.value);summary();save()}
+ else if(t.id==='imp'&&t.files[0]){const fr=new FileReader();fr.onload=()=>{try{const j=JSON.parse(fr.result);const add=Array.isArray(j)?j:j.recs||[];D.recs=[...D.recs,...add.filter(x=>x&&typeof x==='object')];render();$('imp').value='';msg('imp',`${add.length}件を読み込みました`)}catch(err){msg('imp','読み込めないファイルです')}};fr.readAsText(t.files[0])}
+});
+document.addEventListener('click',e=>{const t=e.target,d=t.dataset,c=C();
+ if(t.id==='rebep'){c.bep=bepNow();render()}
+ else if(t.id==='addsym'){const v=$('addsymt').value.trim();if(v){c.cus.push({id:'u'+Date.now(),t:v,on:true});$('addsymt').value='';render()}}
+ else if(d.dsym!==undefined){e.preventDefault();c.cus.splice(+d.dsym,1);render()}
+ else if(t.id==='addhyp'){const v=$('addhypt').value.trim();if(v){c.hc.push({t:v,v:$('addhypv').value,y:$('addhypl').value,st:'未確認'});$('addhypt').value='';render()}}
+ else if(d.hcdel!==undefined){c.hc.splice(+d.hcdel,1);render()}
+ else if(t.id==='addiv'){c.iv.push({cat:IVC[0]});render()}
+ else if(d.ivdel!==undefined){c.iv.splice(+d.ivdel,1);render()}
+ else if(t.id==='copy'){navigator.clipboard.writeText($('sum').textContent).then(()=>msg('copy','コピーしました'),()=>msg('copy','コピーできませんでした'))}
+ else if(t.id==='save'){if(!c.bep)c.bep=bepNow();const rec=JSON.parse(JSON.stringify(c));const i=D.recs.findIndex(x=>x.co===rec.co&&x.date===rec.date);if(i>=0)D.recs[i]=rec;else D.recs.push(rec);render();msg('save','保存しました')}
+ else if(t.id==='newd'){D.cur=blank();render();scrollTo(0,0)}
+ else if(d.rl!==undefined){D.cur=JSON.parse(JSON.stringify(D.recs[+d.rl]));render();scrollTo(0,0)}
+ else if(d.rd!==undefined){if(t.textContent==='削除'){t.textContent='本当に削除';return}D.recs.splice(+d.rd,1);render()}
+ else if(t.id==='exp'){const blob=new Blob([JSON.stringify({app:'navi',exported:new Date().toISOString(),recs:D.recs},null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`診断記録_${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();msg('exp','書き出しました')}
+});
+function msg(id,s){const b=$(id);if(!b||b.tagName!=='BUTTON')return;const o=b.textContent;b.textContent=s;setTimeout(()=>b.textContent=o,1800)}
+// 取り込み：診断に数字が未取り込みなら、最新の損益分岐点を使う（保存時に固定）
+render();
+}
+</script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}</script>
+</body>
+</html>

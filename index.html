@@ -75,6 +75,7 @@ details summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;alig
 <div class="band top">
   <div>
     <h1>損益分岐点を、費用の分解から試算する</h1>
+    <p class="note"><a href="navi.html" style="color:var(--ac);font-weight:600">→ 診断の仮説ナビへ（この結果から原因の仮説を詰める）</a></p>
     <p class="note">決算書の科目を入れると、中小企業庁方式で変動費と固定費に自動で振り分けます。判定の分かれる科目は、社長に聞きながらスライダーで直してください。</p>
     <div class="ctl">
       <select id="ind" aria-label="業種"></select>
@@ -299,6 +300,7 @@ function renderSens(sens){
 }
 function update(){
  const c=calc(),d=calc(true),u=S.unit;
+ try{localStorage.setItem('bep-result',JSON.stringify({s:c.s,V:c.V,F:c.F,P:c.P,mr:c.mr,bep:c.bep,ratio:c.ratio,safe:c.safe,unit:u,indName:IND[S.ind].name}))}catch(e){}
  $('bep').innerHTML=isFinite(c.bep)?`${fm(c.bep)}<small>${u}</small>`:'算出不可';
  $('k-ratio').textContent=pc(c.ratio);$('k-safe').textContent=pc(c.safe);$('k-mr').textContent=pc(c.mr);
  $('k-p').textContent=fm(c.P);$('k-p').style.color=c.P<0?'var(--red)':'';$('k-v').textContent=fm(c.V);$('k-f').textContent=fm(c.F);
