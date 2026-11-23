@@ -53,6 +53,8 @@ button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
 .rat input{flex:1;accent-color:var(--ac);height:44px}
 .rat output{width:3.2em;text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
 .rat button{min-height:32px;padding:0 8px;font-size:12px}
+.half{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:6px;font-size:13px;color:var(--sub)}.half input{width:9em;text-align:right;min-height:36px;padding:4px 8px;font-variant-numeric:tabular-nums}
+.sens td.b0{color:var(--ac)}.sens td.b2{color:var(--warn)}.sens td.b3{color:var(--red)}.sens td.flip{font-weight:800}
 .lev{display:grid;grid-template-columns:8.5em minmax(0,1fr) 7.5em;gap:6px 10px;align-items:center;font-size:15px}
 .bar{height:14px;border-radius:3px;background:var(--ac)}
 .lev .v{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -101,6 +103,7 @@ details summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;alig
 <div class="band">
   <h2>診断の方向性</h2>
   <ul class="dir" id="dir"></ul>
+  <div id="sensbox"></div>
   <h3 style="font-size:16px;margin:18px 0 8px" id="levT">各レバーの許容幅</h3>
   <div class="lev" id="lev"></div>
   <p class="note" style="margin-top:8px" id="levN"></p>
@@ -209,7 +212,7 @@ svc:{name:'サービス業・その他',rows:[
 const GN=['売上原価・製造原価','販売費及び一般管理費','営業外'];
 const SAMPLE={sales:300000,mfg:{mat:105000,out:30000,fuel:3000,pur:0,lab:60000,utl:9000,dep:12000,omf:15000,shp:6000,com:0,spy:30000,sdp:2000,sot:18000,non:3000}};
 const KEY='bep-koteihen-v1';
-let S={ind:'mfg',unit:'千円',sales:SAMPLE.sales,amt:{mfg:{...SAMPLE.mfg}},rat:{},cus:{},reg:'',per:'m',sampled:1};
+let S={ind:'mfg',unit:'千円',sales:SAMPLE.sales,amt:{mfg:{...SAMPLE.mfg}},rat:{},half:{},cus:{},reg:'',per:'m',sampled:1};
 try{const j=JSON.parse(localStorage.getItem(KEY));if(j&&j.ind)S=Object.assign(S,j)}catch(e){}
 const $=id=>document.getElementById(id);
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
@@ -219,6 +222,7 @@ const pc=(n,d=1)=>isFinite(n)?(n*100).toFixed(d)+'%':'—';
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const amt=()=>S.amt[S.ind]||(S.amt[S.ind]={});
 const rat=()=>S.rat[S.ind]||(S.rat[S.ind]={});
+const half=()=>S.half[S.ind]||(S.half[S.ind]={});
 const cus=()=>S.cus[S.ind]||(S.cus[S.ind]=[]);
 $('ind').innerHTML=Object.entries(IND).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');
 
@@ -231,9 +235,9 @@ function rowsHTML(){
   if(!rs.length&&!cs.length)return;
   h+=`<div class="grp"><h3>${gn}</h3>`;
   rs.forEach(x=>{const rv=r[x.id]??x.r,ch=rv!==x.r;
-   h+=`<div class="row${ch?' chg':''}"><div class="lab">${x.l}<span class="tag${x.q?' q':''}">${x.q?'要確認・':''}${x.s}${x.s===P?' '+x.r+'%':''}</span>${x.h?`<div class="hint">${x.h}</div>`:''}</div>
+   h+=`<div class="row${ch?' chg':''}"><div class="lab">${x.l}<span class="tag${x.q?' q':''}">${x.q?'要確認・':''}${x.s}${x.s===P?' '+x.r+'%':''}</span>${x.h?`<div class="hint">${x.h}</div>`:''}<div class="half"><label for="h-${x.id}">売上が半分になったら、この費用はいくら？</label><input type="text" inputmode="decimal" id="h-${x.id}" data-h="${x.id}" value="${half()[x.id]!=null?fm(half()[x.id]):''}" placeholder="聞き取った金額"></div></div>
    <div class="amt"><input type="text" inputmode="decimal" data-a="${x.id}" value="${a[x.id]?fm(a[x.id]):''}" placeholder="0" aria-label="${x.l} 金額"></div>
-   <div class="rat"><input type="range" min="0" max="100" step="5" data-r="${x.id}" value="${rv}" aria-label="${x.l} 変動の割合"><output>${rv}%</output>${ch?`<button data-rs="${x.id}">戻す</button>`:''}</div></div>`});
+   <div class="rat"><input type="range" min="0" max="100" step="1" data-r="${x.id}" value="${rv}" aria-label="${x.l} 変動の割合"><output>${rv}%</output>${ch?`<button data-rs="${x.id}">戻す</button>`:''}</div></div>`});
   cs.forEach(({c,i})=>{
    h+=`<div class="row"><div class="lab"><input type="text" data-cl="${i}" value="${esc(c.l||'')}" placeholder="科目名" style="width:100%"><div class="hint"><span class="tag">追加科目</span> <button data-cd="${i}" style="min-height:32px">削除</button></div></div>
    <div class="amt"><input type="text" inputmode="decimal" data-ca="${i}" value="${c.a?fm(c.a):''}" placeholder="0" aria-label="追加科目 金額"></div>
@@ -244,9 +248,9 @@ function rowsHTML(){
  $('srcnote').textContent=S.ind==='svc'?'サービス業には中小企業庁方式の業種別基準がないため、初期値は本ツールの暫定設定です（タグ「参考」）。業態に合わせて必ず確認してください。':'タグの「方式 ○%」は中小企業庁方式での変動の割合です。「要確認」は実態によって判定が分かれやすい科目です。';
 }
 
-function calc(useDef){
+function calc(useDef,ov){
  const ind=IND[S.ind],a=amt(),r=rat();let V=0,F=0;
- ind.rows.forEach(x=>{const v=a[x.id]||0,p=(useDef?x.r:(r[x.id]??x.r))/100;V+=v*p;F+=v*(1-p)});
+ ind.rows.forEach(x=>{const v=a[x.id]||0,p=(ov&&ov.id===x.id?ov.r:useDef?x.r:(r[x.id]??x.r))/100;V+=v*p;F+=v*(1-p)});
  cus().forEach(c=>{const v=c.a||0,p=(c.r??0)/100;V+=v*p;F+=v*(1-p)});
  const s=S.sales||0,MP=s-V,mr=s?MP/s:NaN,P=MP-F,bep=mr>0?F/mr:NaN;
  return{s,V,F,MP,mr,P,bep,ratio:bep/s,safe:1-bep/s};
@@ -275,6 +279,24 @@ function draw(){
 }
 const ro=new ResizeObserver(draw);ro.observe($('figbox'));
 
+const BAND=['余裕あり','標準的','要注意','赤字'];
+function band(c){if(!(c.mr>0))return 3;return c.ratio>=1?3:c.ratio>=.9?2:c.ratio>=.8?1:0}
+function sensitivity(){
+ const c=calc();if(!(c.s>0)||!(c.V+c.F))return[];
+ const a=amt(),r=rat(),h=half();
+ return IND[S.ind].rows.filter(x=>x.q&&(a[x.id]||0)>0).map(x=>{
+  const res=[0,50,100].map(p=>{const k=calc(false,{id:x.id,r:p});return{p,k,b:band(k)}});
+  const bs=new Set(res.map(o=>o.b));
+  return{x,res,flip:bs.size>1,fixed:(r[x.id]??x.r)!==x.r||h[x.id]!=null,amt:a[x.id]};
+ }).sort((p,q)=>(q.flip-p.flip)||(q.amt-p.amt));
+}
+function renderSens(sens){
+ const box=$('sensbox');
+ if(!sens.length){box.innerHTML='';return}
+ box.innerHTML=`<h3 style="font-size:16px;margin:18px 0 8px">判定の分かれやすい科目：割合を変えたときの損益分岐点比率</h3>
+ <div class="scroll"><table class="sens"><thead><tr><th>科目</th><th>0%</th><th>50%</th><th>100%</th><th>判定</th></tr></thead><tbody>${sens.map(o=>`<tr><td>${o.x.l.replace(/（.*$/,'')}</td>${o.res.map(e=>`<td class="b${e.b}${o.flip?' flip':''}">${isFinite(e.k.ratio)&&e.k.mr>0?pc(e.k.ratio):'—'}</td>`).join('')}<td style="text-align:left">${o.flip?(o.fixed?'変わる（確認済み）':'変わる・要確認'):'変わらない'}</td></tr>`).join('')}</tbody></table></div>
+ <p class="note" style="margin-top:6px">その科目だけを0%・50%・100%にした場合の比率です。色は安全度の判定（緑＝余裕あり、黒＝標準的、黄＝要注意、赤＝赤字）。「変わる」科目だけを詰めれば十分です。割合を動かすか、聞き取り欄に金額を入れると「確認済み」になります。</p>`;
+}
 function update(){
  const c=calc(),d=calc(true),u=S.unit;
  $('bep').innerHTML=isFinite(c.bep)?`${fm(c.bep)}<small>${u}</small>`:'算出不可';
@@ -291,6 +313,8 @@ function update(){
  else t=`余裕あり（80%未満）。売上が ${pc(c.safe)} 落ちるまで黒字を保てます。`;
  vd.textContent=t;vd.className='verdict '+cl;
  // direction
+ const sens=sensitivity();
+ renderSens(sens);
  const dl=[],has=c.s>0&&c.mr>0&&(c.V+c.F)>0;
  if(has){
   const fr=c.F/(c.V+c.F);
@@ -298,10 +322,11 @@ function update(){
   dl.push(`費用のうち固定費が ${pc(fr,0)}、限界利益率は ${pc(c.mr)}。${fr>=.6?'固定費の比重が大きく、売上の量（稼働）を確保できるかが利益を左右します。':fr<=.35?'変動費の比重が大きく、粗利の厚さ（価格と原価）が利益を左右します。':'固定費と変動費は中間的な構成です。'}`);
   dl.push(`値上げ1%は、数量を1%増やすより ${(c.s/c.MP).toFixed(1)}倍 利益に効きます（数量増は変動費も増えるため）。`);
   const df=c.bep-d.bep;
-  if(isFinite(df)&&Math.abs(df)>=1)dl.push(`科目の割合を修正したことで、損益分岐点は中小企業庁方式の初期値（${fm(d.bep)}）から ${df>0?'+':''}${fm(df)} 動きました。分解の前提が結論を左右している科目です。`);
+  if(isFinite(df)&&Math.abs(df)>=1)dl.push(`科目の割合を修正したことで、損益分岐点は中小企業庁方式の初期値（${fm(d.bep)}）から ${df>0?'+':''}${fm(df)} 動きました。`);
   const a=amt(),r=rat();
-  const qs=IND[S.ind].rows.filter(x=>x.q&&(a[x.id]||0)>0&&(r[x.id]??x.r)===x.r).sort((p,q)=>(a[q.id]||0)-(a[p.id]||0)).slice(0,3);
-  if(qs.length)dl.push(`社長に確認すべき科目（金額の大きい順）：${qs.map(x=>x.l.replace(/（.*$/,'')+`（${fm(a[x.id])}）`).join('、')}。`);
+  const qs=sens.filter(o=>o.flip&&!o.fixed).map(o=>o.x);
+  if(qs.length)dl.push(`結論を左右する科目：${qs.map(x=>x.l.replace(/（.*$/,'')).join('、')}。この科目の変動の割合で判定が変わるため、社長に確認してください。`);
+  else if(sens.length)dl.push('判定の分かれやすい科目の割合を0〜100%で動かしても、安全度の判定は変わりません。費用の分解は現状のままで、方向性の判断に十分です。');
  }
  $('dir').innerHTML=dl.map(x=>`<li>${x}</li>`).join('')||'<li>売上高と科目を入れると表示されます。</li>';
  // levers
@@ -351,19 +376,24 @@ $('per').addEventListener('change',e=>{S.per=e.target.value;regress();save()});
 const rows=$('rows');
 rows.addEventListener('input',e=>{const t=e.target,d=t.dataset;
  if(d.a!==undefined){amt()[d.a]=num(t.value);update()}
+ else if(d.h!==undefined){const id=d.h,av=amt()[id]||0;
+  if(t.value.trim()===''){delete half()[id];update();return}
+  const hv=num(t.value);half()[id]=hv;
+  if(av>0){const p=Math.max(0,Math.min(100,Math.round((av-hv)/(av*0.5)*100)));rat()[id]=p;const sl=rows.querySelector(`[data-r="${id}"]`);if(sl){sl.value=p;sl.nextElementSibling.textContent=p+'%'}}
+  update()}
  else if(d.r!==undefined){rat()[d.r]=+t.value;t.nextElementSibling.textContent=t.value+'%';update()}
  else if(d.ca!==undefined){cus()[d.ca].a=num(t.value);update()}
  else if(d.cr!==undefined){cus()[d.cr].r=+t.value;t.nextElementSibling.textContent=t.value+'%';update()}
  else if(d.cl!==undefined){cus()[d.cl].l=t.value;save()}});
 rows.addEventListener('change',e=>{if(e.target.dataset.r!==undefined)rowsHTML()});
-rows.addEventListener('blur',e=>{const t=e.target,d=t.dataset;if(d.a!==undefined||d.ca!==undefined){const v=num(t.value);t.value=v?fm(v):''}},true);
+rows.addEventListener('blur',e=>{const t=e.target,d=t.dataset;if(d.a!==undefined||d.ca!==undefined){const v=num(t.value);t.value=v?fm(v):''}if(d.h!==undefined)rowsHTML()},true);
 rows.addEventListener('click',e=>{const d=e.target.dataset;
- if(d.rs){delete rat()[d.rs];rowsHTML();update()}
+ if(d.rs){delete rat()[d.rs];delete half()[d.rs];rowsHTML();update()}
  if(d.cd){cus().splice(+d.cd,1);rowsHTML();update()}});
 $('addrow').onclick=()=>{cus().push({l:'',a:0,r:0,g:1});rowsHTML();update()};
-$('resetr').onclick=()=>{S.rat[S.ind]={};rowsHTML();update()};
-$('sample').onclick=()=>{S.ind='mfg';S.sales=SAMPLE.sales;S.amt.mfg={...SAMPLE.mfg};S.rat.mfg={};sync()};
-$('clear').onclick=()=>{S.amt[S.ind]={};S.cus[S.ind]=[];S.sales=0;sync()};
+$('resetr').onclick=()=>{S.rat[S.ind]={};S.half[S.ind]={};rowsHTML();update()};
+$('sample').onclick=()=>{S.ind='mfg';S.sales=SAMPLE.sales;S.amt.mfg={...SAMPLE.mfg};S.rat.mfg={};S.half.mfg={};sync()};
+$('clear').onclick=()=>{S.amt[S.ind]={};S.half[S.ind]={};S.cus[S.ind]=[];S.sales=0;sync()};
 $('copy').onclick=async e=>{const c=calc(),u=S.unit;
  const txt=`【損益分岐点 試算（${IND[S.ind].name}・単位${u}）】\n売上高 ${fm(c.s)}\n変動費 ${fm(c.V)} / 固定費 ${fm(c.F)}\n限界利益率 ${pc(c.mr)}\n損益分岐点売上高 ${fm(c.bep)}\n損益分岐点比率 ${pc(c.ratio)} / 安全余裕率 ${pc(c.safe)}\n経常利益 ${fm(c.P)}\n${$('verdict').textContent}\n※費用分解は中小企業庁方式を初期値とし、実態に合わせて修正`;
  try{await navigator.clipboard.writeText(txt);e.target.textContent='コピーしました'}catch(err){e.target.textContent='コピーできませんでした'}
