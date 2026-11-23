@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="損益分岐点">
+<meta name="theme-color" content="#00875a">
+<title>損益分岐点 固変分解ツール</title>
+<style>
+/* VOICE: 診断の現場で使う道具。冷静、装飾なし、数字が主役
+   IDEA: 決算書の科目表に、変動の割合を書き込んでいく診断シート
+   PICTURE: 大きな損益分岐点の数字と損益分岐図（売上線・総費用線）
+   COLOUR and TYPE: 白地、墨、エメラルド1色、赤字だけ朱。Noto Sans JP
+   LAYOUT: 上に結果と図、下に科目表。スマホは結果を下部に固定表示 */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#07130e);--ink:light-dark(#111a16,#e8f1ec);--sub:light-dark(#5b6762,#9fb0a8);--line:light-dark(#dfe5e2,#22332b);--soft:light-dark(#f3f7f5,#0f2019);--ac:light-dark(#00875a,#3fd39a);--acs:light-dark(#d9f2e7,#123a2a);--red:light-dark(#c8341b,#ff7a5e);--warn:light-dark(#9a6a00,#f0c050)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",Meiryo,system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(20px,3.5vw,48px) max(4vw,16px,env(safe-area-inset-right));padding-top:max(clamp(20px,3.5vw,48px),env(safe-area-inset-top));max-width:1240px;margin:0 auto}
+h1{font-size:clamp(24px,3.4vw,34px);line-height:1.15;margin:0 0 6px;font-weight:800;text-wrap:balance}
+h2{font-size:20px;margin:0 0 10px;font-weight:800}
+p{margin:0 0 10px}.note{font-size:13px;color:var(--sub)}
+.top{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:28px;align-items:start}
+.ctl{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+select,input[type=text],textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;min-height:44px}
+select:focus,input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+button{font:inherit;font-size:15px;min-height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--soft);color:var(--ink);cursor:pointer}
+button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.big{font-size:clamp(36px,6vw,56px);font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums;white-space:nowrap}
+.big small{font-size:18px;font-weight:600;margin-left:4px}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;margin:14px 0}
+.kpis div{border-top:1px solid var(--line);padding-top:6px}
+.kpis b{display:block;font-size:22px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpis span{font-size:13px;color:var(--sub)}
+.verdict{padding:10px 12px;border-radius:8px;background:var(--acs);font-weight:600}
+.verdict.bad{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red)}
+.verdict.mid{background:color-mix(in srgb,var(--warn) 18%,transparent)}
+.fig{position:relative;min-height:340px;border:1px solid var(--line);border-radius:10px;background:var(--soft)}
+.fig>svg{position:absolute;inset:0;width:100%;height:100%}
+.grp{margin-top:22px}.grp h3{font-size:15px;color:var(--sub);margin:0 0 4px;font-weight:600}
+.row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1.5fr);gap:10px 14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.row.chg{background:linear-gradient(90deg,var(--acs),transparent 70%)}
+.lab{font-weight:600;line-height:1.35}
+.tag{display:inline-block;font-size:12px;font-weight:400;color:var(--sub);border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:4px;white-space:nowrap}
+.tag.q{color:var(--warn);border-color:currentColor}
+.hint{font-size:13px;color:var(--sub);font-weight:400;margin-top:2px}
+.amt input{width:100%;text-align:right;font-variant-numeric:tabular-nums}
+.rat{display:flex;align-items:center;gap:8px}
+.rat input{flex:1;accent-color:var(--ac);height:44px}
+.rat output{width:3.2em;text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.rat button{min-height:32px;padding:0 8px;font-size:12px}
+.lev{display:grid;grid-template-columns:8.5em minmax(0,1fr) 7.5em;gap:6px 10px;align-items:center;font-size:15px}
+.bar{height:14px;border-radius:3px;background:var(--ac)}
+.lev .v{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+ul.dir{padding-left:1.2em;margin:6px 0}ul.dir li{margin:6px 0}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}
+textarea{width:100%;min-height:180px;font-variant-numeric:tabular-nums}
+table{border-collapse:collapse;width:100%}td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th:first-child,td:first-child{text-align:left}
+details summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center}
+.dock{display:none}
+@media(max-width:860px){.top,.cols{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.row .lab{grid-column:1/-1}.lev{grid-template-columns:6.5em minmax(0,1fr) 6.5em;font-size:14px}
+.dock{display:flex;position:fixed;left:0;right:0;bottom:0;justify-content:space-between;gap:10px;padding:8px 16px calc(8px + env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--line);font-variant-numeric:tabular-nums;z-index:5}
+.dock b{font-size:18px}body{padding-bottom:64px}}
+@media(prefers-reduced-motion:no-preference){.bar{transition:width .25s}}
+</style>
+</head>
+<body>
+<div class="band top">
+  <div>
+    <h1>損益分岐点を、費用の分解から試算する</h1>
+    <p class="note">決算書の科目を入れると、中小企業庁方式で変動費と固定費に自動で振り分けます。判定の分かれる科目は、社長に聞きながらスライダーで直してください。</p>
+    <div class="ctl">
+      <select id="ind" aria-label="業種"></select>
+      <select id="unit" aria-label="単位"><option>千円</option><option>円</option><option>百万円</option></select>
+    </div>
+    <label class="lab" for="sales">売上高（年間）</label>
+    <div class="ctl" style="margin-top:4px"><input type="text" id="sales" inputmode="decimal" style="flex:1;text-align:right;font-size:20px;font-weight:600"></div>
+    <div class="note">損益分岐点売上高</div>
+    <div class="big" id="bep">—</div>
+    <div class="kpis">
+      <div><span>損益分岐点比率</span><b id="k-ratio">—</b></div>
+      <div><span>安全余裕率</span><b id="k-safe">—</b></div>
+      <div><span>限界利益率</span><b id="k-mr">—</b></div>
+      <div><span>経常利益</span><b id="k-p">—</b></div>
+      <div><span>変動費</span><b id="k-v">—</b></div>
+      <div><span>固定費</span><b id="k-f">—</b></div>
+    </div>
+    <div class="verdict" id="verdict">—</div>
+  </div>
+  <div>
+    <div class="fig" id="figbox"><svg id="fig" role="img" aria-label="損益分岐図"></svg></div>
+    <p class="note" style="margin-top:6px">実線＝売上高、太線＝総費用（固定費＋変動費）、点線＝固定費。交点が損益分岐点、縦線が現在の売上高。</p>
+  </div>
+</div>
+
+<div class="band">
+  <h2>診断の方向性</h2>
+  <ul class="dir" id="dir"></ul>
+  <h3 style="font-size:16px;margin:18px 0 8px" id="levT">各レバーの許容幅</h3>
+  <div class="lev" id="lev"></div>
+  <p class="note" style="margin-top:8px" id="levN"></p>
+</div>
+
+<div class="band">
+  <h2>科目と変動の割合</h2>
+  <p class="note" id="srcnote"></p>
+  <div id="rows"></div>
+  <div class="ctl" style="margin-top:16px">
+    <button id="addrow">＋ 科目を追加</button>
+    <button id="resetr">割合をすべて初期値に戻す</button>
+    <button id="sample">サンプルを入れる</button>
+    <button id="clear">金額をすべて消す</button>
+    <button id="copy" class="pri">結果をコピー</button>
+  </div>
+  <p class="note">内訳のない決算書（売上原価が1行だけ）の場合：売上原価を最初の行にまとめて入れ、変動の割合を「材料・仕入・外注が原価の何割か」の聞き取りに合わせて下げてください。</p>
+</div>
+
+<div class="band">
+  <details id="regbox">
+    <summary>実績データで検算する（回帰分析・補助）</summary>
+    <div class="cols" style="margin-top:10px">
+      <div>
+        <p class="note">1行に「売上高, 総費用」を、カンマ（桁区切りなし）・空白・タブのいずれかで区切って入れてください（月次12か月程度が目安）。総費用は営業外を含めた費用合計です。表計算ソフトから2列をそのまま貼り付けられます。</p>
+        <div class="ctl"><select id="per" aria-label="データの期間"><option value="m">月次データ（固定費を12倍して年換算）</option><option value="y">年次データ</option></select></div>
+        <textarea id="reg" aria-label="実績データ" placeholder="24000, 23300&#10;26500, 24800&#10;..."></textarea>
+      </div>
+      <div id="regout"><p class="note">データを入れると、科目別の分解と比べた結果が出ます。</p></div>
+    </div>
+  </details>
+</div>
+
+<div class="band note">
+  <p>分類の初期値の出典：中小企業庁「中小企業BCP策定運用指針」5.4 直接原価方式による損益計算書の作成・計算手順（元は中小企業庁「中小企業の原価指標」の費用分解基準）。<a href="https://www.chusho.meti.go.jp/bcp/contents/level_c/bcpgl_05c_4_3.html">原典を開く</a></p>
+  <p>「方式に記載なし」「参考」の科目、およびサービス業の初期値は本ツールの暫定設定です。損益分岐点比率の評価区分（80%・90%・100%）は一般に用いられる目安で、業種や資料によって異なります。入力内容と計算はこの端末の中だけで扱われ、外部には送信されません。一度開いた後は通信なしで動きます。</p>
+</div>
+
+<div class="dock"><span>分岐点 <b id="d-bep">—</b></span><span>比率 <b id="d-ratio">—</b></span></div>
+
+<script>
+{
+const P='方式',A='方式に記載なし',R='参考';
+const IND={
+mfg:{name:'製造業',rows:[
+ {id:'mat',g:0,l:'材料費（直接・間接材料、買入部品）',r:100,s:P},
+ {id:'out',g:0,l:'外注費（外注加工費）',r:100,s:P,q:1,h:'受注量に比例しますか。保守・常駐など毎月定額の外注は固定へ。'},
+ {id:'fuel',g:0,l:'重油等燃料費',r:100,s:P},
+ {id:'pur',g:0,l:'製品仕入原価・製品棚卸増減（期首−期末）',r:100,s:P,h:'期末在庫が期首より多い場合はマイナスで入力。'},
+ {id:'lab',g:0,l:'労務費（直接・間接、福利厚生費含む）',r:0,s:P,q:1,h:'繁閑で残業・派遣・パートが大きく増減するなら、その分を変動へ。'},
+ {id:'utl',g:0,l:'水道光熱費・電力料',r:0,s:P,q:1,h:'機械の稼働に比例する従量分が大きいなら一部を変動へ（基本料金は固定）。'},
+ {id:'dep',g:0,l:'減価償却費（製造）',r:0,s:P},
+ {id:'omf',g:0,l:'その他製造経費（修繕・賃借・保険・旅費等）',r:0,s:P},
+ {id:'shp',g:1,l:'運賃・荷造費',r:0,s:P,q:1,h:'方式では製造業の運賃・荷造費は固定費扱い。出荷量に比例するなら変動へ。'},
+ {id:'com',g:1,l:'販売手数料',r:100,s:A},
+ {id:'spy',g:1,l:'役員・事務員・販売員の給料手当',r:0,s:P},
+ {id:'sdp',g:1,l:'減価償却費（販管）',r:0,s:P},
+ {id:'sot',g:1,l:'その他販管費（地代家賃・広告・交際・通信等）',r:0,s:P},
+ {id:'non',g:2,l:'営業外費用−営業外収益（支払利息等の純額）',r:0,s:P,h:'営業外収益の方が多い場合はマイナスで入力。'}]},
+con:{name:'建設業',rows:[
+ {id:'mat',g:0,l:'材料費',r:100,s:P},
+ {id:'lab',g:0,l:'労務費（完成工事原価）',r:100,s:P,q:1,h:'方式では変動費。自社雇用の職人の給与で仕事量に関係なく払うなら固定へ。'},
+ {id:'out',g:0,l:'外注費',r:100,s:P},
+ {id:'kex',g:0,l:'仮設経費・機械等経費・運搬費・設計費',r:100,s:P,q:1,h:'自社保有機械の経費が中心なら、一部固定へ。'},
+ {id:'utl',g:0,l:'動力・用水・光熱費（工事原価分）',r:100,s:P},
+ {id:'sid',g:0,l:'兼業原価',r:100,s:P},
+ {id:'sit',g:0,l:'現場従業員給料手当・労務管理費・福利厚生費',r:0,s:P},
+ {id:'cot',g:0,l:'その他工事経費（地代家賃・保険料・租税公課等）',r:0,s:P},
+ {id:'spy',g:1,l:'役員・事務員給料手当・退職金',r:0,s:P},
+ {id:'sdp',g:1,l:'減価償却費',r:0,s:P},
+ {id:'sot',g:1,l:'その他一般管理費',r:0,s:P},
+ {id:'non',g:2,l:'営業外費用−営業外収益（支払利息等の純額）',r:0,s:P,h:'営業外収益の方が多い場合はマイナスで入力。'}]},
+whs:{name:'卸売業',rows:[
+ {id:'cog',g:0,l:'売上原価',r:100,s:P},
+ {id:'shp',g:1,l:'支払運賃・荷造費・保管料',r:100,s:P},
+ {id:'veh',g:1,l:'車両燃料費・車両修理費',r:50,s:P,h:'方式では卸売業の場合50%。'},
+ {id:'ins',g:1,l:'保険料',r:50,s:P,h:'方式では卸売業の場合50%。'},
+ {id:'com',g:1,l:'販売手数料',r:100,s:A},
+ {id:'spy',g:1,l:'人件費（販売員・役員・事務員給料、福利厚生費）',r:0,s:P,q:1,h:'歩合給が大きいなら、その分を変動へ。'},
+ {id:'sdp',g:1,l:'減価償却費',r:0,s:P},
+ {id:'rnt',g:1,l:'土地建物賃借料',r:0,s:P},
+ {id:'sot',g:1,l:'その他販管費（広告・交際・通信・光熱等）',r:0,s:P},
+ {id:'non',g:2,l:'営業外費用−営業外収益（支払利息等の純額）',r:0,s:P,h:'営業外収益の方が多い場合はマイナスで入力。'}]},
+rtl:{name:'小売業',rows:[
+ {id:'cog',g:0,l:'売上原価',r:100,s:P,q:1,h:'廃棄ロスや値引きが原価に入っている場合も、通常はそのまま変動。'},
+ {id:'shp',g:1,l:'支払運賃・荷造費・保管料',r:100,s:P},
+ {id:'veh',g:1,l:'車両燃料費・車両修理費',r:0,s:P,h:'方式では小売業は全額固定。'},
+ {id:'ins',g:1,l:'保険料',r:0,s:P,h:'方式では小売業は全額固定。'},
+ {id:'com',g:1,l:'販売手数料・決済手数料',r:100,s:A},
+ {id:'spy',g:1,l:'人件費（販売員・役員・事務員給料、福利厚生費）',r:0,s:P,q:1,h:'パート・アルバイトのシフトを売上に合わせて調整しているなら一部を変動へ。'},
+ {id:'sdp',g:1,l:'減価償却費',r:0,s:P},
+ {id:'rnt',g:1,l:'土地建物賃借料',r:0,s:P,q:1,h:'売上歩合家賃の部分は変動へ。'},
+ {id:'sot',g:1,l:'その他販管費（広告・交際・通信・光熱等）',r:0,s:P},
+ {id:'non',g:2,l:'営業外費用−営業外収益（支払利息等の純額）',r:0,s:P,h:'営業外収益の方が多い場合はマイナスで入力。'}]},
+svc:{name:'サービス業・その他',rows:[
+ {id:'cog',g:0,l:'売上原価・仕入・材料費',r:100,s:R},
+ {id:'out',g:0,l:'外注費',r:100,s:R,q:1,h:'案件ごとに発注する外注は変動、毎月定額の委託は固定。'},
+ {id:'utl',g:0,l:'水道光熱・動力・燃料費',r:0,s:R,q:1,h:'飲食・宿泊・運輸など稼働に比例する業態なら一部を変動へ。'},
+ {id:'com',g:1,l:'販売手数料・決済手数料・予約サイト手数料',r:100,s:R},
+ {id:'spy',g:1,l:'人件費（役員・正社員・パート、福利厚生費）',r:0,s:R,q:1,h:'パート・アルバイトのシフトを売上に合わせて調整しているなら一部を変動へ。'},
+ {id:'sdp',g:1,l:'減価償却費',r:0,s:R},
+ {id:'rnt',g:1,l:'地代家賃',r:0,s:R},
+ {id:'sot',g:1,l:'その他経費（広告・通信・消耗品等）',r:0,s:R},
+ {id:'non',g:2,l:'営業外費用−営業外収益（支払利息等の純額）',r:0,s:R,h:'営業外収益の方が多い場合はマイナスで入力。'}]}
+};
+const GN=['売上原価・製造原価','販売費及び一般管理費','営業外'];
+const SAMPLE={sales:300000,mfg:{mat:105000,out:30000,fuel:3000,pur:0,lab:60000,utl:9000,dep:12000,omf:15000,shp:6000,com:0,spy:30000,sdp:2000,sot:18000,non:3000}};
+const KEY='bep-koteihen-v1';
+let S={ind:'mfg',unit:'千円',sales:SAMPLE.sales,amt:{mfg:{...SAMPLE.mfg}},rat:{},cus:{},reg:'',per:'m',sampled:1};
+try{const j=JSON.parse(localStorage.getItem(KEY));if(j&&j.ind)S=Object.assign(S,j)}catch(e){}
+const $=id=>document.getElementById(id);
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const num=v=>{const n=parseFloat(String(v).replace(/[,，\s]/g,'').replace(/[０-９．－]/g,c=>({'．':'.','－':'-'}[c]||String.fromCharCode(c.charCodeAt(0)-65248))));return isFinite(n)?n:0};
+const fm=n=>isFinite(n)?Math.round(n).toLocaleString('ja-JP'):'—';
+const pc=(n,d=1)=>isFinite(n)?(n*100).toFixed(d)+'%':'—';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const amt=()=>S.amt[S.ind]||(S.amt[S.ind]={});
+const rat=()=>S.rat[S.ind]||(S.rat[S.ind]={});
+const cus=()=>S.cus[S.ind]||(S.cus[S.ind]=[]);
+$('ind').innerHTML=Object.entries(IND).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');
+
+function rowsHTML(){
+ const ind=IND[S.ind],a=amt(),r=rat();
+ let h='';
+ GN.forEach((gn,g)=>{
+  const rs=ind.rows.filter(x=>x.g===g);
+  const cs=cus().map((c,i)=>({c,i})).filter(o=>(o.c.g||0)===g);
+  if(!rs.length&&!cs.length)return;
+  h+=`<div class="grp"><h3>${gn}</h3>`;
+  rs.forEach(x=>{const rv=r[x.id]??x.r,ch=rv!==x.r;
+   h+=`<div class="row${ch?' chg':''}"><div class="lab">${x.l}<span class="tag${x.q?' q':''}">${x.q?'要確認・':''}${x.s}${x.s===P?' '+x.r+'%':''}</span>${x.h?`<div class="hint">${x.h}</div>`:''}</div>
+   <div class="amt"><input type="text" inputmode="decimal" data-a="${x.id}" value="${a[x.id]?fm(a[x.id]):''}" placeholder="0" aria-label="${x.l} 金額"></div>
+   <div class="rat"><input type="range" min="0" max="100" step="5" data-r="${x.id}" value="${rv}" aria-label="${x.l} 変動の割合"><output>${rv}%</output>${ch?`<button data-rs="${x.id}">戻す</button>`:''}</div></div>`});
+  cs.forEach(({c,i})=>{
+   h+=`<div class="row"><div class="lab"><input type="text" data-cl="${i}" value="${esc(c.l||'')}" placeholder="科目名" style="width:100%"><div class="hint"><span class="tag">追加科目</span> <button data-cd="${i}" style="min-height:32px">削除</button></div></div>
+   <div class="amt"><input type="text" inputmode="decimal" data-ca="${i}" value="${c.a?fm(c.a):''}" placeholder="0" aria-label="追加科目 金額"></div>
+   <div class="rat"><input type="range" min="0" max="100" step="5" data-cr="${i}" value="${c.r??0}" aria-label="追加科目 変動の割合"><output>${c.r??0}%</output></div></div>`});
+  h+='</div>';
+ });
+ $('rows').innerHTML=h;
+ $('srcnote').textContent=S.ind==='svc'?'サービス業には中小企業庁方式の業種別基準がないため、初期値は本ツールの暫定設定です（タグ「参考」）。業態に合わせて必ず確認してください。':'タグの「方式 ○%」は中小企業庁方式での変動の割合です。「要確認」は実態によって判定が分かれやすい科目です。';
+}
+
+function calc(useDef){
+ const ind=IND[S.ind],a=amt(),r=rat();let V=0,F=0;
+ ind.rows.forEach(x=>{const v=a[x.id]||0,p=(useDef?x.r:(r[x.id]??x.r))/100;V+=v*p;F+=v*(1-p)});
+ cus().forEach(c=>{const v=c.a||0,p=(c.r??0)/100;V+=v*p;F+=v*(1-p)});
+ const s=S.sales||0,MP=s-V,mr=s?MP/s:NaN,P=MP-F,bep=mr>0?F/mr:NaN;
+ return{s,V,F,MP,mr,P,bep,ratio:bep/s,safe:1-bep/s};
+}
+
+function draw(){
+ const svg=$('fig'),W=svg.clientWidth,H=svg.clientHeight;if(!W||!H)return;
+ const c=calc();
+ if(!(c.s>0)){svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="var(--sub)" font-size="14">売上高を入れてください</text>`;return}
+ const xm=Math.max(c.s,isFinite(c.bep)?c.bep:0)*1.3,v=c.V/c.s,ym=Math.max(xm,c.F+v*xm)*1.05;
+ const L=W<520?14:56,Rr=14,T=16,B=W<520?18:34,pw=W-L-Rr,ph=H-T-B;
+ const X=x=>L+x/xm*pw,Y=y=>T+ph-y/ym*ph;
+ let g='';
+ if(W>=520)for(let i=0;i<=4;i++){const y=ym*i/4;g+=`<line x1="${L}" x2="${W-Rr}" y1="${Y(y)}" y2="${Y(y)}" stroke="var(--line)"/><text x="${L-6}" y="${Y(y)+4}" text-anchor="end" font-size="11" fill="var(--sub)">${fm(y)}</text>`}
+ g+=`<line x1="${X(0)}" y1="${Y(c.F)}" x2="${X(xm)}" y2="${Y(c.F)}" stroke="var(--sub)" stroke-dasharray="4 4"/>`;
+ g+=`<line x1="${X(0)}" y1="${Y(0)}" x2="${X(xm)}" y2="${Y(xm)}" stroke="var(--ink)" stroke-width="1.5"/>`;
+ g+=`<line x1="${X(0)}" y1="${Y(c.F)}" x2="${X(xm)}" y2="${Y(c.F+v*xm)}" stroke="var(--ac)" stroke-width="3"/>`;
+ g+=`<line x1="${X(c.s)}" x2="${X(c.s)}" y1="${T}" y2="${Y(0)}" stroke="${c.P<0?'var(--red)':'var(--ink)'}" stroke-dasharray="2 3"/>`;
+ g+=`<text x="${Math.min(X(c.s)+6,W-90)}" y="${T+14}" font-size="12" fill="var(--ink)">現在 ${fm(c.s)}</text>`;
+ if(isFinite(c.bep)&&c.bep>0){const bx=X(c.bep),by=Y(c.bep);
+  g+=`<circle cx="${bx}" cy="${by}" r="6" fill="var(--bg)" stroke="var(--ac)" stroke-width="3"/>`;
+  g+=`<text x="${Math.max(bx-8,L+60)}" y="${by-12}" text-anchor="end" font-size="13" font-weight="600" fill="var(--ink)">損益分岐点 ${fm(c.bep)}</text>`}
+ g+=`<text x="${X(xm)-4}" y="${Y(c.F)+16}" text-anchor="end" font-size="11" fill="var(--sub)">固定費</text>`;
+ if(W>=520)g+=`<text x="${W-Rr}" y="${H-8}" text-anchor="end" font-size="11" fill="var(--sub)">売上高（${S.unit}）</text>`;
+ svg.innerHTML=g;
+}
+const ro=new ResizeObserver(draw);ro.observe($('figbox'));
+
+function update(){
+ const c=calc(),d=calc(true),u=S.unit;
+ $('bep').innerHTML=isFinite(c.bep)?`${fm(c.bep)}<small>${u}</small>`:'算出不可';
+ $('k-ratio').textContent=pc(c.ratio);$('k-safe').textContent=pc(c.safe);$('k-mr').textContent=pc(c.mr);
+ $('k-p').textContent=fm(c.P);$('k-p').style.color=c.P<0?'var(--red)':'';$('k-v').textContent=fm(c.V);$('k-f').textContent=fm(c.F);
+ $('d-bep').textContent=fm(c.bep);$('d-ratio').textContent=pc(c.ratio);
+ const vd=$('verdict');let t,cl='';
+ if(!(c.s>0)){t='売上高を入れてください'}
+ else if(!(c.V+c.F)){t='科目の金額を入れてください';$('bep').textContent='—'}
+ else if(!(c.mr>0)){t='限界利益がマイナスです。売るほど赤字が増える状態で、損益分岐点は存在しません。';cl='bad'}
+ else if(c.ratio>=1){t=`赤字。損益分岐点まで売上をあと ${pc(c.ratio-1)} 伸ばす必要があります。`;cl='bad'}
+ else if(c.ratio>=.9){t=`要注意（90%以上）。売上が ${pc(c.safe)} 落ちると赤字です。`;cl='mid'}
+ else if(c.ratio>=.8){t=`標準的（80〜90%）。売上が ${pc(c.safe)} 落ちると赤字です。`}
+ else t=`余裕あり（80%未満）。売上が ${pc(c.safe)} 落ちるまで黒字を保てます。`;
+ vd.textContent=t;vd.className='verdict '+cl;
+ // direction
+ const dl=[],has=c.s>0&&c.mr>0&&(c.V+c.F)>0;
+ if(has){
+  const fr=c.F/(c.V+c.F);
+  if(c.P>0){const dol=c.MP/c.P;dl.push(`売上が1%変わると経常利益は約${dol.toFixed(1)}%変わります（経営レバレッジ係数 ${dol.toFixed(1)}倍）。${dol>=5?'利益が売上の変動に非常に敏感な体質です。':''}`)}
+  dl.push(`費用のうち固定費が ${pc(fr,0)}、限界利益率は ${pc(c.mr)}。${fr>=.6?'固定費の比重が大きく、売上の量（稼働）を確保できるかが利益を左右します。':fr<=.35?'変動費の比重が大きく、粗利の厚さ（価格と原価）が利益を左右します。':'固定費と変動費は中間的な構成です。'}`);
+  dl.push(`値上げ1%は、数量を1%増やすより ${(c.s/c.MP).toFixed(1)}倍 利益に効きます（数量増は変動費も増えるため）。`);
+  const df=c.bep-d.bep;
+  if(isFinite(df)&&Math.abs(df)>=1)dl.push(`科目の割合を修正したことで、損益分岐点は中小企業庁方式の初期値（${fm(d.bep)}）から ${df>0?'+':''}${fm(df)} 動きました。分解の前提が結論を左右している科目です。`);
+  const a=amt(),r=rat();
+  const qs=IND[S.ind].rows.filter(x=>x.q&&(a[x.id]||0)>0&&(r[x.id]??x.r)===x.r).sort((p,q)=>(a[q.id]||0)-(a[p.id]||0)).slice(0,3);
+  if(qs.length)dl.push(`社長に確認すべき科目（金額の大きい順）：${qs.map(x=>x.l.replace(/（.*$/,'')+`（${fm(a[x.id])}）`).join('、')}。`);
+ }
+ $('dir').innerHTML=dl.map(x=>`<li>${x}</li>`).join('')||'<li>売上高と科目を入れると表示されます。</li>';
+ // levers
+ let lv=[];
+ if(has&&c.P!==0){
+  const need=Math.abs(c.P),loss=c.P<0;
+  lv=[['単価',need/c.s],['販売数量',need/c.MP],['変動費（単位あたり）',c.V?need/c.V:NaN],['固定費',c.F?need/c.F:NaN]];
+  $('levT').textContent=loss?'黒字化に必要な改善幅（各レバー単独で）':'赤字になるまでの許容幅（各レバー単独で）';
+  $('levN').textContent=loss?'値は「そのレバーだけで黒字化するには何%改善が必要か」。小さいほど効くレバーです。':'値は「そのレバーだけが悪化した場合、何%で赤字に転落するか」。小さいほど弱点です。';
+ }else{$('levN').textContent=''}
+ const mx=Math.max(...lv.map(x=>isFinite(x[1])?x[1]:0),1e-9);
+ $('lev').innerHTML=lv.map(([n,v])=>`<span>${n}</span><div><div class="bar" style="width:${isFinite(v)?Math.max(2,v/mx*100):0}%"></div></div><span class="v">${isFinite(v)?(c.P<0?'+':'')+pc(v)+(c.P<0?'':' 悪化'):'—'}</span>`).join('');
+ draw();regress();save();
+}
+
+function regress(){
+ const out=$('regout'),pts=S.reg.split(/\n/).map(l=>(l.includes('\t')?l.split('\t'):/\S\s+\S/.test(l.trim())?l.trim().split(/\s+/):l.split(/[,，]/)).map(x=>x.trim()).filter(x=>/\d/.test(x)).map(num)).filter(a=>a.length>=2).map(a=>[a[0],a[1]]);
+ if(pts.length<3){out.innerHTML='<p class="note">3行以上のデータを入れると、科目別の分解と比べた結果が出ます。</p>';return}
+ const n=pts.length,mx=pts.reduce((s,p)=>s+p[0],0)/n,my=pts.reduce((s,p)=>s+p[1],0)/n;
+ let sxx=0,sxy=0,syy=0;pts.forEach(([x,y])=>{sxx+=(x-mx)**2;sxy+=(x-mx)*(y-my);syy+=(y-my)**2});
+ if(!sxx){out.innerHTML='<p class="note">売上高がすべて同じ値のため推定できません。</p>';return}
+ const b=sxy/sxx,a=my-b*mx,r2=syy?sxy*sxy/(sxx*syy):0,fa=a*(S.per==='m'?12:1),c=calc();
+ const w=[];
+ if(n<6)w.push('データが6点未満で、推定は不安定です。');
+ if(r2<.5)w.push('決定係数が0.5未満で、売上と費用の関係がはっきりしません。季節要因・一時費用・価格改定の影響を疑ってください。');
+ if(b<0||b>1)w.push('変動費率が0〜100%の範囲外です。この推定は使えません。');
+ if(fa<0)w.push('固定費がマイナスに推定されています。この推定は使えません。');
+ const gap=Math.abs(b-c.V/c.s);
+ if(c.s>0&&gap>.1&&b>=0&&b<=1)w.push(`変動費率が科目別の分解と${(gap*100).toFixed(0)}ポイント以上ずれています。科目の割合の見直しを検討してください。`);
+ out.innerHTML=`<table><thead><tr><th></th><th>回帰分析</th><th>科目別の分解</th></tr></thead><tbody>
+ <tr><td>変動費率</td><td>${pc(b)}</td><td>${pc(c.V/c.s)}</td></tr>
+ <tr><td>固定費（年）</td><td>${fm(fa)}</td><td>${fm(c.F)}</td></tr>
+ <tr><td>損益分岐点売上高（年）</td><td>${b<1&&fa>0?fm(fa/(1-b)):'—'}</td><td>${fm(c.bep)}</td></tr></tbody></table>
+ <p class="note" style="margin-top:8px">データ ${n}点、決定係数 ${r2.toFixed(2)}。回帰は検算用で、主な根拠には科目別の分解を使ってください。</p>${w.map(x=>`<p class="verdict mid" style="margin-top:6px;font-weight:400">${x}</p>`).join('')}`;
+}
+
+function sync(){
+ $('ind').value=S.ind;$('unit').value=S.unit;$('sales').value=S.sales?fm(S.sales):'';
+ $('reg').value=S.reg||'';$('per').value=S.per||'m';rowsHTML();update();
+}
+$('ind').addEventListener('change',e=>{S.ind=e.target.value;rowsHTML();update()});
+$('unit').addEventListener('change',e=>{S.unit=e.target.value;update()});
+$('sales').addEventListener('input',e=>{S.sales=num(e.target.value);update()});
+$('sales').addEventListener('blur',e=>{e.target.value=S.sales?fm(S.sales):''});
+$('reg').addEventListener('input',e=>{S.reg=e.target.value;regress();save()});
+$('per').addEventListener('change',e=>{S.per=e.target.value;regress();save()});
+const rows=$('rows');
+rows.addEventListener('input',e=>{const t=e.target,d=t.dataset;
+ if(d.a!==undefined){amt()[d.a]=num(t.value);update()}
+ else if(d.r!==undefined){rat()[d.r]=+t.value;t.nextElementSibling.textContent=t.value+'%';update()}
+ else if(d.ca!==undefined){cus()[d.ca].a=num(t.value);update()}
+ else if(d.cr!==undefined){cus()[d.cr].r=+t.value;t.nextElementSibling.textContent=t.value+'%';update()}
+ else if(d.cl!==undefined){cus()[d.cl].l=t.value;save()}});
+rows.addEventListener('change',e=>{if(e.target.dataset.r!==undefined)rowsHTML()});
+rows.addEventListener('blur',e=>{const t=e.target,d=t.dataset;if(d.a!==undefined||d.ca!==undefined){const v=num(t.value);t.value=v?fm(v):''}},true);
+rows.addEventListener('click',e=>{const d=e.target.dataset;
+ if(d.rs){delete rat()[d.rs];rowsHTML();update()}
+ if(d.cd){cus().splice(+d.cd,1);rowsHTML();update()}});
+$('addrow').onclick=()=>{cus().push({l:'',a:0,r:0,g:1});rowsHTML();update()};
+$('resetr').onclick=()=>{S.rat[S.ind]={};rowsHTML();update()};
+$('sample').onclick=()=>{S.ind='mfg';S.sales=SAMPLE.sales;S.amt.mfg={...SAMPLE.mfg};S.rat.mfg={};sync()};
+$('clear').onclick=()=>{S.amt[S.ind]={};S.cus[S.ind]=[];S.sales=0;sync()};
+$('copy').onclick=async e=>{const c=calc(),u=S.unit;
+ const txt=`【損益分岐点 試算（${IND[S.ind].name}・単位${u}）】\n売上高 ${fm(c.s)}\n変動費 ${fm(c.V)} / 固定費 ${fm(c.F)}\n限界利益率 ${pc(c.mr)}\n損益分岐点売上高 ${fm(c.bep)}\n損益分岐点比率 ${pc(c.ratio)} / 安全余裕率 ${pc(c.safe)}\n経常利益 ${fm(c.P)}\n${$('verdict').textContent}\n※費用分解は中小企業庁方式を初期値とし、実態に合わせて修正`;
+ try{await navigator.clipboard.writeText(txt);e.target.textContent='コピーしました'}catch(err){e.target.textContent='コピーできませんでした'}
+ setTimeout(()=>e.target.textContent='結果をコピー',1800)};
+sync();
+}
+</script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}</script>
+</body>
+</html>
