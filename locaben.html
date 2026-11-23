@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#00875a">
+<title>ロカベン財務6指標</title>
+<style>
+/* VOICE: 診断の現場で使う道具。冷静、装飾なし
+   IDEA: 健康診断の結果表。6項目の数値と、業種の基準に対する5段階の判定
+   PICTURE: 総合評価（A〜D）と6指標の5段階バー
+   COLOUR and TYPE: 白地、墨、エメラルド1色。1〜2点は朱、3点は墨。端末標準の日本語書体
+   LAYOUT: 上に業種・規模と総合評価、中央に6指標、下に入力表 */
+:root{color-scheme:light dark;--bg:light-dark(#fff,#07130e);--ink:light-dark(#111a16,#e8f1ec);--sub:light-dark(#5b6762,#9fb0a8);--line:light-dark(#dfe5e2,#22332b);--soft:light-dark(#f3f7f5,#0f2019);--ac:light-dark(#00875a,#3fd39a);--acs:light-dark(#d9f2e7,#123a2a);--red:light-dark(#c8341b,#ff7a5e);--warn:light-dark(#9a6a00,#f0c050)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",Meiryo,system-ui,sans-serif;overflow-x:clip}
+.wrap{max-width:960px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) max(4vw,16px) 60px}
+h1{font-size:clamp(24px,3.4vw,32px);line-height:1.15;margin:0 0 6px;font-weight:800}
+h2{font-size:20px;margin:0 0 8px;font-weight:800}
+p{margin:0 0 10px}.note{font-size:13px;color:var(--sub)}
+section{padding:20px 0;border-bottom:1px solid var(--line)}
+input[type=text],select{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:44px;width:100%}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+button{font:inherit;font-size:15px;min-height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--soft);color:var(--ink);cursor:pointer}
+button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.hits{border:1px solid var(--line);border-radius:8px;max-height:220px;overflow:auto;margin-top:6px}
+.hits button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;background:var(--bg);font-size:14px;min-height:40px}
+.sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}
+.sum div{border:1px solid var(--line);border-radius:10px;padding:10px}
+.sum .r{font-size:44px;font-weight:800;line-height:1}.sum span{font-size:13px;color:var(--sub);display:block}
+.ind{border-top:1px solid var(--line);padding:12px 0}
+.ind h3{font-size:16px;margin:0 0 6px}
+.per{display:grid;grid-template-columns:6.5em minmax(0,1fr) 3.2em;gap:6px 10px;align-items:center;font-size:14px}
+.per .v{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.seg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}
+.seg i{height:14px;border-radius:3px;background:var(--line)}
+.seg i.on{background:var(--ac)}.seg.lo i.on{background:var(--red)}.seg.mid i.on{background:var(--ink)}
+.sc{font-weight:800;text-align:right}
+.th{font-size:12px;color:var(--sub);margin-top:6px}
+.scroll{overflow-x:auto}
+table.in{border-collapse:collapse;min-width:560px;width:100%}
+table.in th,table.in td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;font-size:14px}
+table.in td input{text-align:right;min-height:40px;padding:6px 8px;font-variant-numeric:tabular-nums}
+table.in th{font-weight:600;white-space:nowrap}
+.warn{padding:10px 12px;border-radius:8px;background:color-mix(in srgb,var(--warn) 18%,transparent);margin:10px 0}
+details summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center}
+a{color:var(--ac)}
+@media(max-width:600px){.g3{grid-template-columns:minmax(0,1fr)}.per{grid-template-columns:5.5em minmax(0,1fr) 2.8em}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="note"><a href="./">← 損益分岐点ツール</a>　<a href="navi.html">診断の仮説ナビ</a></p>
+  <h1>ロカベン財務6指標</h1>
+  <p class="note">経済産業省のローカルベンチマークと同じ計算式・基準値で、6つの指標を業種・規模の基準と比べて5段階で採点します。金額はすべて千円、従業員数は人です。</p>
+
+  <section>
+    <h2>業種と規模</h2>
+    <label class="note" for="q">日本標準産業分類から探す（例：印刷、ラベル、新聞、建設）</label>
+    <input type="text" id="q" placeholder="キーワードを入力">
+    <div class="hits" id="hits" hidden></div>
+    <div class="g3" style="margin-top:10px">
+      <div><label class="note" for="big">ロカベン業種（大分類）</label><select id="big"></select></div>
+      <div><label class="note" for="sub">ロカベン業種（小分類）</label><select id="sub"></select></div>
+      <div><label class="note" for="cap">資本金（千円。個人事業主は0）</label><input type="text" id="cap" inputmode="decimal" data-f="cap"></div>
+    </div>
+    <p style="margin-top:10px">事業規模：<b id="size">—</b> <span class="note" id="sizeN"></span></p>
+  </section>
+
+  <section>
+    <h2>結果</h2>
+    <div class="sum" id="sum"></div>
+    <div id="inds"></div>
+    <p class="note">点数と総合評価は、業種の基準値からの乖離を示すもので、点数の高低がそのまま企業の評価を示すものではありません。非財務の情報も含めた総合的な判断が必要です（ロカベンシートの注記による）。</p>
+    <div class="ctl"><button id="copy" class="pri">結果をコピー</button></div>
+  </section>
+
+  <section>
+    <h2>決算書の数字</h2>
+    <div class="scroll"><table class="in" id="tbl"></table></div>
+    <div class="ctl"><button id="sample">サンプルを入れる</button><button id="clear">すべて消す</button></div>
+    <details class="note"><summary>入力の注意（ロカベンシートの注記）</summary>
+      <p>従業員数は正社員の数です。パート・派遣・契約社員は含めず、従業員兼務の役員は含めます。役員のみの会社は1名とします。</p>
+      <p>減価償却費は、製造原価と販売費及び一般管理費に計上されたものの合計です。受取手形には割引手形を含め、支払手形には設備支払手形を含めません。</p>
+      <p>借入金は、長期借入金・短期借入金・1年以内返済長期借入金・社債の合計です。役員借入金を別科目にしている場合は含めなくて構いません。</p>
+      <p>労働生産性は「営業利益÷従業員数」による簡易計算です。経営力向上計画などに記載するときは、それぞれの定義で計算し直してください。</p>
+    </details>
+  </section>
+
+  <section>
+    <details id="ovbox"><summary>基準値を手入力で上書きする（任意）</summary>
+      <p class="note">業界団体の資料など、別の基準で比べたいときに使います。上書きはこの端末の、選んでいる業種・規模にだけ適用されます。公式の基準値を更新するときは、新しいロカベンシートをClaudeに渡してください。</p>
+      <div id="ov"></div>
+      <div class="ctl"><button id="ovreset">公式の基準値に戻す</button></div>
+    </details>
+  </section>
+
+  <p class="note" id="src"></p>
+</div>
+<script>
+{
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num=v=>{if(v==null||String(v).trim()==='')return NaN;const n=parseFloat(String(v).replace(/[,，\s]/g,'').replace(/[０-９．－]/g,c=>({'．':'.','－':'-'}[c]||String.fromCharCode(c.charCodeAt(0)-65248))));return isFinite(n)?n:NaN};
+const fm=n=>isFinite(n)?Math.round(n).toLocaleString('ja-JP'):'';
+const P=['最新期','前期','前々期'];
+const ROWS=[['emp','従業員数（正社員・人）'],['ym','決算年月（例：2026/3）'],['s','売上高'],['ps','前期売上高（前々期列のみ入力）'],['op','営業利益'],['dep','減価償却費'],['cash','現金・預金'],['nr','受取手形'],['ar','売掛金'],['inv','棚卸資産'],['liab','負債合計'],['np','支払手形'],['ap','買掛金'],['debt','借入金'],['eq','純資産合計']];
+const SAMPLE={big:'03_製造業',sub:'0306_その他の製造業',cap:'20000',v:{emp:['18','19','19'],ym:['2026/3','2025/3','2024/3'],s:['300000','310000','295000'],ps:['','','288000'],op:['6000','9500','8200'],dep:['12000','12500','13000'],cash:['42000','45000','40000'],nr:['8000','9000','9500'],ar:['52000','54000','50000'],inv:['21000','19500','20000'],liab:['180000','176000','182000'],np:['6000','6500','7000'],ap:['31000','32000','30500'],debt:['120000','115000','121000'],eq:['70000','68000','63000']}};
+const KEY='locaben-v1';
+let S={big:'',sub:'',cap:'',v:{},ov:{}};
+try{const j=JSON.parse(localStorage.getItem(KEY));if(j)S=Object.assign(S,j)}catch(e){}
+if(!S.big){S.big=SAMPLE.big;S.sub=SAMPLE.sub;S.cap=SAMPLE.cap;S.v=JSON.parse(JSON.stringify(SAMPLE.v));S.sampled=1}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+let B=null;
+const val=(k,i)=>num((S.v[k]||[])[i]);
+
+function sizeOf(){
+ const big=S.big,emp=val('emp',0),cap=num(S.cap);
+ if(!big||!S.sub)return['—','業種を選んでください'];
+ if(!isFinite(emp)||!isFinite(cap))return['—','最新期の従業員数と資本金を入れてください'];
+ if((emp===0)&&(cap===0))return['分析対象外',''];
+ const g=big==='04_卸売業'?'w':['05_小売業','06_飲食業'].includes(big)?'r':['10_サービス業','11_医療業','12_保険衛生、廃棄物処理業','13_観光業'].includes(big)?'s':'m';
+ const lim={w:[100000,100,5],r:[50000,50,5],s:[50000,100,5],m:[300000,300,20]}[g];
+ const sme=(cap>0&&cap<=lim[0])||(emp>0&&emp<=lim[1]);
+ if(sme&&emp>=0&&emp<=lim[2])return['小規模事業者',`中小企業のうち従業員${lim[2]}人以下`];
+ return['中規模事業者',sme?'中小企業のうち小規模以外':'中小企業の範囲外のため、中規模として判定（ロカベンの扱い）'];
+}
+function bench(key,size){
+ const ok=`${S.sub}|${size}`;const o=S.ov[ok]&&S.ov[ok][key];
+ const b=B&&B.bench[key][ok];if(!b)return null;
+ const r={med:b[0],t4:b[2],t3:b[3],t2:b[4],t1:b[5],ov:false};
+ if(o&&o.every(x=>isFinite(x))){[r.t4,r.t3,r.t2,r.t1]=o;r.ov=true}
+ return r;
+}
+function calc(i){
+ const s=val('s',i),ps=i===2?val('ps',2):val('s',i+1),op=val('op',i),dep=val('dep',i),cash=val('cash',i),emp=val('emp',i);
+ const nr=val('nr',i)||0,ar=val('ar',i)||0,inv=val('inv',i)||0,np=val('np',i)||0,ap=val('ap',i)||0,debt=val('debt',i),liab=val('liab',i),eq=val('eq',i);
+ const wcIn=[val('nr',i),val('ar',i),val('inv',i),val('np',i),val('ap',i)].some(isFinite);
+ return{sales:s/ps-1,opm:op/s,lp:op/emp,ebitda:(debt-cash)/(op+dep),wc:wcIn&&s?(ar+nr+inv-(ap+np))/(s/12):NaN,eq:eq/(eq+liab),_nd:debt-cash,_eb:op+dep};
+}
+function score(key,dir,v,b,c){
+ if(!b)return null;
+ if(key==='ebitda'){if(isFinite(c._nd)&&c._nd<=0)return 5;if(isFinite(c._eb)&&c._eb<=0)return 1}
+ if(!isFinite(v))return null;
+ if(dir==='up')return v>=b.t1?5:v>=b.t2?4:v>=b.t3?3:v>=b.t4?2:1;
+ return v<b.t1?5:v<b.t2?4:v<b.t3?3:v<b.t4?2:1;
+}
+const show=(ind,v)=>!isFinite(v)?'—':ind.unit==='%'?(v*100).toFixed(1)+'%':ind.unit==='千円'?fm(v)+'千円':v.toFixed(2)+ind.unit;
+const showT=(ind,v)=>ind.unit==='%'?(v*100).toFixed(1)+'%':ind.unit==='千円'?fm(v):v.toFixed(2);
+const rank=t=>t>=24?'A':t>=18?'B':t>=12?'C':'D';
+
+function renderSel(){
+ if(!B)return;
+ $('big').innerHTML='<option value="">選択してください</option>'+Object.keys(B.industries).map(k=>`<option${S.big===k?' selected':''}>${esc(k)}</option>`).join('');
+ const subs=B.industries[S.big]||[];
+ if(!subs.includes(S.sub))S.sub=subs.length===1?subs[0]:'';
+ $('sub').innerHTML='<option value="">選択してください</option>'+subs.map(k=>`<option${S.sub===k?' selected':''}>${esc(k)}</option>`).join('');
+ $('cap').value=S.cap?fm(num(S.cap)):'';
+}
+function renderTbl(){
+ $('tbl').innerHTML=`<thead><tr><th>項目</th>${P.map(p=>`<th>${p}</th>`).join('')}</tr></thead><tbody>${ROWS.map(([k,n])=>`<tr><th>${n}</th>${P.map((p,i)=>`<td>${k==='ps'&&i<2?'<span class="note">自動</span>':`<input type="text" inputmode="${k==='ym'?'text':'decimal'}" data-k="${k}" data-i="${i}" value="${esc(k==='ym'?(S.v[k]||[])[i]||'':isFinite(val(k,i))?fm(val(k,i)):'')}" aria-label="${n} ${p}">`}</td>`).join('')}</tr>`).join('')}</tbody>`;
+}
+function renderOv(){
+ const [size]=sizeOf();if(!B||!S.sub||!size.endsWith('事業者')){$('ov').innerHTML='<p class="note">業種と規模が決まると表示されます。</p>';return}
+ $('ov').innerHTML=B.indicators.map(ind=>{const b=bench(ind.key,size);if(!b)return'';const f=x=>ind.unit==='%'?(x*100).toFixed(2):(+x).toFixed(2);
+  return`<div class="ind"><b>${ind.name}</b>${b.ov?' <span class="note">（上書き中）</span>':''}<div class="g3" style="grid-template-columns:repeat(4,minmax(0,1fr))">${['t4','t3','t2','t1'].map((t,j)=>`<label class="note">${['ⅳ','ⅲ','ⅱ','ⅰ'][j]}${ind.unit==='%'?'（%）':''}<input type="text" inputmode="decimal" data-ov="${ind.key}" data-j="${j}" value="${f(b[t])}"></label>`).join('')}</div></div>`}).join('');
+}
+function update(){
+ const [size,sn]=sizeOf();$('size').textContent=size;$('sizeN').textContent=sn;
+ if(!B){$('inds').innerHTML='<p class="note">基準値を読み込み中です。</p>';return}
+ const C=[0,1,2].map(calc),tot=[0,0,0],cnt=[0,0,0];let html='';
+ const okSize=size.endsWith('事業者');
+ B.indicators.forEach(ind=>{
+  const b=okSize?bench(ind.key,size):null;
+  html+=`<div class="ind"><h3>${ind.name}${b&&b.ov?' <span class="note">（基準値は上書き中）</span>':''}</h3>`+[0,1,2].map(i=>{const v=C[i][ind.key],sc=score(ind.key,ind.dir,v,b,C[i]);if(sc){tot[i]+=sc;cnt[i]++}
+   return`<div class="per"><span>${P[i]}${S.v.ym&&S.v.ym[i]?`<br><span class="note">${esc(S.v.ym[i])}</span>`:''}</span><div><div class="seg ${sc<=2?'lo':sc===3?'mid':''}">${[1,2,3,4,5].map(n=>`<i class="${sc&&n<=sc?'on':''}"></i>`).join('')}</div><div class="note v" style="text-align:left">${show(ind,v)}${ind.key==='ebitda'&&isFinite(C[i]._nd)&&C[i]._nd<=0?'（実質無借金）':''}</div></div><span class="sc">${sc?sc+'点':'—'}</span></div>`}).join('')+
+  (b?`<div class="th">基準（${ind.dir==='up'?'高いほど良い':'低いほど良い'}）：5点 ${ind.dir==='up'?'≧':'＜'} ${showT(ind,b.t1)}　4点 ${ind.dir==='up'?'≧':'＜'} ${showT(ind,b.t2)}　3点 ${ind.dir==='up'?'≧':'＜'} ${showT(ind,b.t3)}　2点 ${ind.dir==='up'?'≧':'＜'} ${showT(ind,b.t4)}　業種中央値 ${showT(ind,b.med)}${ind.unit==='%'?'':ind.unit}</div>`:'')+'</div>';
+ });
+ $('inds').innerHTML=okSize?html:`<div class="warn">${esc(sn||'業種と規模を確定してください')}</div>`+html;
+ $('sum').innerHTML=[0,1,2].map(i=>`<div><span>${P[i]}${S.v.ym&&S.v.ym[i]?'（'+esc(S.v.ym[i])+'）':''}</span><div class="r">${cnt[i]?rank(tot[i]):'—'}</div><span>総合 ${cnt[i]?tot[i]:'—'} / 30点${cnt[i]&&cnt[i]<6?`（${6-cnt[i]}指標が未算出）`:''}</span></div>`).join('');
+ try{localStorage.setItem('locaben-result',JSON.stringify({sub:S.sub,size,tot,C:C.map(c=>({sales:c.sales,opm:c.opm,lp:c.lp,ebitda:c.ebitda,wc:c.wc,eq:c.eq}))}))}catch(e){}
+ save();
+}
+function text(){
+ const [size]=sizeOf(),C=[0,1,2].map(calc);const L=[`【ロカベン財務6指標】${S.sub||''}／${size}`];
+ B.indicators.forEach(ind=>{const b=bench(ind.key,size);L.push(`${ind.name}：`+[0,1,2].map(i=>`${P[i]} ${show(ind,C[i][ind.key])}（${score(ind.key,ind.dir,C[i][ind.key],b,C[i])||'—'}点）`).join('／'))});
+ L.push('総合評価：'+$('sum').innerText.replace(/\n+/g,' ').trim());L.push('※基準値：'+B.source);return L.join('\n');
+}
+$('q').addEventListener('input',e=>{const q=e.target.value.trim();const h=$('hits');if(!B||q.length<1){h.hidden=true;return}
+ const r=B.jsic.filter(x=>x[0].includes(q)||x[1].includes(q)).slice(0,40);
+ h.hidden=false;h.innerHTML=r.length?r.map((x,i)=>`<button data-j="${B.jsic.indexOf(x)}">${esc(x[0])}<br><span class="note">→ ${esc(x[2])}</span></button>`).join(''):'<p class="note" style="padding:8px">該当なし</p>'});
+$('hits').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const x=B.jsic[+b.dataset.j];S.sub=x[2];S.big=Object.keys(B.industries).find(k=>B.industries[k].includes(x[2]))||'';$('hits').hidden=true;$('q').value=x[0];renderSel();renderOv();update()});
+$('big').addEventListener('change',e=>{S.big=e.target.value;renderSel();renderOv();update()});
+$('sub').addEventListener('change',e=>{S.sub=e.target.value;renderOv();update()});
+$('cap').addEventListener('input',e=>{S.cap=e.target.value;update()});
+$('cap').addEventListener('blur',e=>{renderOv();e.target.value=S.cap?fm(num(S.cap)):''});
+$('tbl').addEventListener('input',e=>{const t=e.target,k=t.dataset.k,i=+t.dataset.i;if(!k)return;(S.v[k]=S.v[k]||['','',''])[i]=t.value;update()});
+$('tbl').addEventListener('blur',e=>{const t=e.target;if(t.dataset.k&&t.dataset.k!=='ym'){const n=num(t.value);t.value=isFinite(n)?fm(n):''}if(t.dataset.k==='emp')renderOv()},true);
+$('ov').addEventListener('change',e=>{const t=e.target,key=t.dataset.ov;if(!key)return;const [size]=sizeOf(),ok=`${S.sub}|${size}`;const ind=B.indicators.find(x=>x.key===key);
+ const ins=[...$('ov').querySelectorAll(`[data-ov="${key}"]`)].map(x=>num(x.value)/(ind.unit==='%'?100:1));S.ov[ok]=S.ov[ok]||{};S.ov[ok][key]=ins;update();renderOv()});
+$('ovreset').onclick=()=>{const [size]=sizeOf();delete S.ov[`${S.sub}|${size}`];renderOv();update()};
+$('sample').onclick=()=>{Object.assign(S,{big:SAMPLE.big,sub:SAMPLE.sub,cap:SAMPLE.cap,v:JSON.parse(JSON.stringify(SAMPLE.v))});renderSel();renderTbl();renderOv();update()};
+$('clear').onclick=()=>{S.v={};S.cap='';renderSel();renderTbl();renderOv();update()};
+$('copy').onclick=async e=>{try{await navigator.clipboard.writeText(text());e.target.textContent='コピーしました'}catch(err){e.target.textContent='コピーできませんでした'}setTimeout(()=>e.target.textContent='結果をコピー',1800)};
+renderTbl();update();
+fetch('locaben-benchmark.json').then(r=>r.json()).then(j=>{B=j;$('src').textContent='基準値の出典：'+B.source+'。業種の対応は同シートの日本標準産業分類との変換表によります。';renderSel();renderOv();update()}).catch(()=>{$('inds').innerHTML='<div class="warn">基準値を読み込めませんでした。通信のある場所で一度開いてください。</div>'});
+}
+</script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}</script>
+</body>
+</html>
